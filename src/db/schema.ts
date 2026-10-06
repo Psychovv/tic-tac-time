@@ -25,6 +25,7 @@ export const matches = sqliteTable(
     status: text("status").notNull().default("waiting"),
     winner: text("winner"),
     createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at"),
   },
   (t) => [index("matches_status_idx").on(t.status)]
 );

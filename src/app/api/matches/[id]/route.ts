@@ -35,7 +35,28 @@ async function score(tx: any, m: Match, r: "X" | "O" | "draw") {
 export async function GET(_: Request, { params }: Ctx) {
   const u = await me();
   if (!u) return Response.json({ error: "Faca login" }, { status: 401 });
-  const v = await view((await params).id, u.id);
+  const { id } = await params;
+
+  // Lógica de Abandono de Partida (W.O.)
+  const m = (await db.select().from(matches).where(eq(matches.id, id)))[0];
+  if (m && m.status === "playing") {
+    const lastActive = m.updatedAt ?? m.createdAt;
+    if (lastActive < Date.now() - 300_000) { // 5 minutos de inatividade
+      const res = m.turn === "X" ? "O" : "X"; // quem não jogou perde por W.O.
+      try {
+        await db.transaction(async (tx) => {
+          const upd = await tx.update(matches)
+            .set({ status: "done", winner: res, updatedAt: Date.now() })
+            .where(and(eq(matches.id, m.id), eq(matches.status, "playing")));
+          if (upd.rowsAffected > 0) {
+            await score(tx, m, res);
+          }
+        });
+      } catch {}
+    }
+  }
+
+  const v = await view(id, u.id);
   return v ? Response.json(v) : Response.json({ error: "Partida nao encontrada" }, { status: 404 });
 }
 
@@ -44,10 +65,11 @@ export async function POST(req: Request, { params }: Ctx) {
   if (!u) return Response.json({ error: "Faca login" }, { status: 401 });
   const { id } = await params;
   const { action, cell } = await req.json();
+  const now = Date.now();
 
   if (action === "accept") {
     // Atomico: so um jogador consegue aceitar.
-    const r = await db.update(matches).set({ guestId: u.id, status: "playing" })
+    const r = await db.update(matches).set({ guestId: u.id, status: "playing", updatedAt: now })
       .where(and(eq(matches.id, id), eq(matches.status, "waiting"), ne(matches.hostId, u.id)));
     if (r.rowsAffected === 0) return Response.json({ error: "Convite indisponivel" }, { status: 409 });
   } else if (action === "cancel") {
@@ -66,7 +88,7 @@ export async function POST(req: Request, { params }: Ctx) {
     try {
       await db.transaction(async (tx) => {
         const upd = await tx.update(matches)
-          .set({ board, turn: sym === "X" ? "O" : "X", status: res ? "done" : "playing", winner: res })
+          .set({ board, turn: sym === "X" ? "O" : "X", status: res ? "done" : "playing", winner: res, updatedAt: now })
           .where(and(eq(matches.id, id), eq(matches.board, m.board), eq(matches.status, "playing")));
         if (upd.rowsAffected === 0) throw new Error("optimistic_lock_failed");
         if (res) await score(tx, m, res);
@@ -88,11 +110,11 @@ export async function POST(req: Request, { params }: Ctx) {
     ).limit(1);
 
     if (existing[0]) {
-      await db.update(matches).set({ guestId: u.id, status: "playing" }).where(eq(matches.id, existing[0].id));
+      await db.update(matches).set({ guestId: u.id, status: "playing", updatedAt: now }).where(eq(matches.id, existing[0].id));
       return Response.json({ id: existing[0].id });
     } else {
       const newId = crypto.randomUUID();
-      await db.insert(matches).values({ id: newId, hostId: u.id, createdAt: Date.now() });
+      await db.insert(matches).values({ id: newId, hostId: u.id, createdAt: now, updatedAt: now });
       return Response.json({ id: newId });
     }
   } else return Response.json({ error: "Acao invalida" }, { status: 400 });

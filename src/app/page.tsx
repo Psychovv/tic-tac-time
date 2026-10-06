@@ -4,7 +4,7 @@ import { Avatar } from "@/components/Avatar";
 import Board from "@/components/Board";
 import Confetti from "@/components/Confetti";
 import Header, { type Tab } from "@/components/Header";
-import { IconAlert, IconBolt, IconBook, IconSearch, IconTrophy, IconUsers } from "@/components/Icons";
+import { IconAlert, IconBolt, IconBook, IconSearch, IconTrophy, IconUsers, IconSettings } from "@/components/Icons";
 import { Logo, OMark, XMark, vars } from "@/components/Marks";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -90,7 +90,7 @@ export default function Home() {
           <span className="word" style={vars({ "--i": 1 })}>Tac</span>{" "}
           <span className="word" style={vars({ "--i": 2 })}><span className="grad">Time</span></span>
         </h1>
-        <p className="mute login-sub">O jogo da velha do setor. Desafie a galera e suba no ranking.</p>
+        <p className="mute login-sub">O jogo da velha. Desafie a galera e suba no ranking.</p>
         <div className="login-form">
           <label className="sr-only" htmlFor="nick">Apelido</label>
           <input id="nick" className="input" value={nick} onChange={(e) => setNick(e.target.value)}
@@ -104,7 +104,7 @@ export default function Home() {
         {hub.ranking?.length > 0 && (
           <div className="login-top">
             <div className="avatar-stack">
-              {hub.ranking.slice(0, 5).map((r: any) => <Avatar key={r.nickname} name={r.nickname} />)}
+              {hub.ranking.slice(0, 5).map((r: any) => <Avatar key={r.nickname} name={r.nickname} photo={r.photo} />)}
             </div>
             <span className="mute">{hub.ranking.length >= 10 ? "10+" : hub.ranking.length} jogando no ranking</span>
           </div>
@@ -124,6 +124,7 @@ export default function Home() {
           : <Lobby key="lobby" hub={hub} busy={busy} onSearch={search} onAccept={(id) => act(id, { action: "accept" })} onRanking={() => setTab("ranking")} />
         )}
         {tab === "ranking" && <RankingView key="ranking" me={hub.me.nickname} />}
+        {tab === "settings" && <SettingsView key="settings" me={hub.me} onUpdate={() => location.reload()} onLogout={logout} />}
         {tab === "regras" && <RulesView key="regras" />}
       </main>
       <footer className="footer"><Logo /> Tic Tac Time · feito pra descontrair o setor</footer>
@@ -178,7 +179,7 @@ function Lobby({ hub, busy, onSearch, onAccept, onRanking }: {
             <div className="list">
               {hub.waiting.map((w: any, i: number) => (
                 <div className="row-item" key={w.id} style={vars({ "--i": i })}>
-                  <Avatar name={w.host} />
+                  <Avatar name={w.host} photo={w.photo} />
                   <div className="grow"><div className="name">{w.host}</div><div className="sub">quer jogar agora</div></div>
                   <button className="btn btn-accept" disabled={busy} onClick={() => onAccept(w.id)}>Aceitar</button>
                 </div>
@@ -208,7 +209,7 @@ function RankList({ rows, me, start = 0 }: { rows: any[]; me: string; start?: nu
         return (
           <div key={r.nickname} className={`row-item${r.nickname === me ? " me" : ""}`} style={vars({ "--i": i })}>
             <span className="rank-pos">{pos <= 3 ? ["🥇", "🥈", "🥉"][pos - 1] : pos}</span>
-            <Avatar name={r.nickname} />
+            <Avatar name={r.nickname} photo={r.photo} />
             <div className="grow">
               <div className="name">{r.nickname}{r.nickname === me && <span className="you-tag">você</span>}</div>
               <div className="sub">{r.wins} {r.wins === 1 ? "vitória" : "vitórias"}</div>
@@ -249,7 +250,7 @@ function RankingView({ me }: { me: string }) {
             {podium.map(({ r, pos, medal, delay }) => r ? (
               <div key={pos} className={`podium-col p${pos}${r.nickname === me ? " me" : ""}`} style={vars({ "--medal": medal, "--delay": delay })}>
                 {pos === 1 && <span className="crown" aria-hidden="true">👑</span>}
-                <Avatar name={r.nickname} />
+                <Avatar name={r.nickname} photo={r.photo} />
                 <div className="name">{r.nickname}</div>
                 <div className="rank-pts">{r.points}<small> pts</small></div>
                 <div className="podium-block">{pos}</div>
@@ -375,6 +376,94 @@ function MatchView({ m, busy, onMove, onCancel, onLeave, onRematch }: {
         )}
       </section>
       {outcome === "win" && <Confetti />}
+    </div>
+  );
+}
+
+function SettingsView({ me, onUpdate, onLogout }: { me: any; onUpdate: () => void; onLogout: () => void }) {
+  const [nick, setNick] = useState(me.nickname);
+  const [photo, setPhoto] = useState(me.photo || "");
+  const [oldPin, setOldPin] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
+
+  const saveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true); setMsg(""); setErr("");
+    const res = await fetch("/api/me", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "update", nickname: nick, photo: photo || null })
+    }).then(r => r.json());
+    setBusy(false);
+    if (res.error) setErr(res.error);
+    else { setMsg("Perfil atualizado!"); onUpdate(); }
+  };
+
+  const savePin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true); setMsg(""); setErr("");
+    const res = await fetch("/api/me", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "update", oldPin, newPin })
+    }).then(r => r.json());
+    setBusy(false);
+    if (res.error) setErr(res.error);
+    else { setMsg("Senha alterada!"); setOldPin(""); setNewPin(""); }
+  };
+
+  const deleteAccount = async () => {
+    const pin = prompt("Tem certeza? Digite seu PIN atual para excluir a conta para sempre:");
+    if (!pin) return;
+    setBusy(true); setMsg(""); setErr("");
+    const res = await fetch("/api/me", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete", oldPin: pin })
+    }).then(r => r.json());
+    setBusy(false);
+    if (res.error) setErr(res.error);
+    else onLogout();
+  };
+
+  return (
+    <div className="view">
+      <section className="card">
+        <h2 className="card-title"><IconSettings /> Configurações de Perfil</h2>
+        {msg && <div className="toast" style={{position:'static', marginBottom:'1rem', background:'var(--c-win)', color:'#fff'}}>{msg}</div>}
+        {err && <div className="toast" style={{position:'static', marginBottom:'1rem'}}>{err}</div>}
+        
+        <form onSubmit={saveProfile} style={{display:'flex', flexDirection:'column', gap:'1rem', marginBottom:'2rem'}}>
+          <div>
+            <label className="eyebrow" style={{display:'block', marginBottom:'0.5rem'}}>Avatar (URL da imagem)</label>
+            <input className="input" type="url" value={photo} onChange={e => setPhoto(e.target.value)} placeholder="https://..." />
+            {photo && <div style={{marginTop:'1rem'}}><Avatar name={nick} photo={photo} className="lg" /></div>}
+          </div>
+          <div>
+            <label className="eyebrow" style={{display:'block', marginBottom:'0.5rem'}}>Apelido</label>
+            <input className="input" type="text" value={nick} onChange={e => setNick(e.target.value)} minLength={2} maxLength={20} required />
+          </div>
+          <button type="submit" className="btn btn-primary" disabled={busy}>Salvar Perfil</button>
+        </form>
+
+        <hr style={{border:'none', borderTop:'1px solid var(--c-bord)', margin:'2rem 0'}} />
+        <h2 className="card-title">Mudar PIN</h2>
+        <form onSubmit={savePin} style={{display:'flex', flexDirection:'column', gap:'1rem', marginBottom:'2rem'}}>
+          <div>
+            <label className="eyebrow" style={{display:'block', marginBottom:'0.5rem'}}>PIN Atual</label>
+            <input className="input" type="password" inputMode="numeric" pattern="\d{4}" maxLength={4} value={oldPin} onChange={e => setOldPin(e.target.value.replace(/\D/g, ''))} required />
+          </div>
+          <div>
+            <label className="eyebrow" style={{display:'block', marginBottom:'0.5rem'}}>Novo PIN</label>
+            <input className="input" type="password" inputMode="numeric" pattern="\d{4}" maxLength={4} value={newPin} onChange={e => setNewPin(e.target.value.replace(/\D/g, ''))} required />
+          </div>
+          <button type="submit" className="btn" disabled={busy || newPin.length !== 4 || oldPin.length !== 4}>Alterar PIN</button>
+        </form>
+
+        <hr style={{border:'none', borderTop:'1px solid var(--c-bord)', margin:'2rem 0'}} />
+        <h2 className="card-title" style={{color:'var(--c-err)'}}>Zona de Perigo</h2>
+        <button className="btn danger" disabled={busy} onClick={deleteAccount}>Excluir minha conta</button>
+      </section>
     </div>
   );
 }

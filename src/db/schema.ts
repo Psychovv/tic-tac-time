@@ -10,6 +10,7 @@ export const users = sqliteTable("users", {
   wins: integer("wins").notNull().default(0),
   losses: integer("losses").notNull().default(0),
   draws: integer("draws").notNull().default(0),
+  photo: text("photo"),
 });
 
 // board: 9 chars ("." vazio, "X" host, "O" convidado). turn: "X" | "O".

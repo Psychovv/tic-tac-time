@@ -19,3 +19,4 @@ export const IconUsers = mk("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 
 export const IconSearch = mk("M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35");
 export const IconBolt = mk("M13 2L3 14h9l-1 8 10-12h-9l1-8z");
 export const IconAlert = mk("M12 8v4M12 16h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z");
+export const IconSettings = mk("M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2");

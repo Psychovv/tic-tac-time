@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Avatar } from "./Avatar";
-import { IconBook, IconChevron, IconClose, IconGrid, IconLogout, IconTrophy } from "./Icons";
+import { IconBook, IconChevron, IconClose, IconGrid, IconLogout, IconTrophy, IconSettings } from "./Icons";
 import { Logo, vars } from "./Marks";
 
-export type Tab = "jogar" | "ranking" | "regras";
+export type Tab = "jogar" | "ranking" | "regras" | "settings";
 const TABS = [
   { id: "jogar", label: "Jogar", Icon: IconGrid },
   { id: "ranking", label: "Ranking", Icon: IconTrophy },
@@ -14,7 +14,7 @@ const TABS = [
 type Props = {
   tab: Tab;
   onTab: (t: Tab) => void;
-  me: { nickname: string; points: number };
+  me: { nickname: string; points: number; photo?: string | null };
   live: boolean; // ha partida em andamento/aguardando
   onLogout: () => void;
 };
@@ -77,17 +77,18 @@ export default function Header({ tab, onTab, me, live, onLogout }: Props) {
 
           <div className={`user${userOpen ? " open" : ""}`} ref={userRef}>
             <button className="user-chip" onClick={() => setUserOpen((o) => !o)} aria-haspopup="menu" aria-expanded={userOpen}>
-              <Avatar name={me.nickname} />
+              <Avatar name={me.nickname} photo={me.photo} />
               <span className="user-meta"><span className="user-name">{me.nickname}</span>{pts}</span>
               <IconChevron className="chev" />
             </button>
             <div className={`dropdown${userOpen ? " show" : ""}`} role="menu" inert={!userOpen}>
               <div className="dropdown-head">
-                <Avatar name={me.nickname} className="lg" />
+                <Avatar name={me.nickname} photo={me.photo} className="lg" />
                 <div><div className="user-name">{me.nickname}</div>{pts}</div>
               </div>
               <button role="menuitem" className="dropdown-item" onClick={() => go("ranking")}><IconTrophy /> Ver ranking</button>
               <button role="menuitem" className="dropdown-item" onClick={() => go("regras")}><IconBook /> Como jogar</button>
+              <button role="menuitem" className="dropdown-item" onClick={() => go("settings")}><IconSettings /> Configurações</button>
               <button role="menuitem" className="dropdown-item danger" onClick={onLogout}><IconLogout /> Sair</button>
             </div>
           </div>
@@ -103,7 +104,7 @@ export default function Header({ tab, onTab, me, live, onLogout }: Props) {
       <div className={`drawer-backdrop${drawer ? " show" : ""}`} onClick={() => setDrawer(false)} />
       <aside className={`drawer${drawer ? " show" : ""}`} inert={!drawer} aria-label="Menu">
         <div className="drawer-head">
-          <Avatar name={me.nickname} className="lg" />
+          <Avatar name={me.nickname} photo={me.photo} className="lg" />
           <div className="grow"><div className="user-name">{me.nickname}</div>{pts}</div>
           <button className="icon-btn" onClick={() => setDrawer(false)} aria-label="Fechar menu"><IconClose /></button>
         </div>
@@ -112,8 +113,11 @@ export default function Header({ tab, onTab, me, live, onLogout }: Props) {
             <Icon />{label}{id === "jogar" && live && <span className="live-dot" />}
           </button>
         ))}
+        <button style={vars({ "--i": TABS.length })} className={`drawer-item${tab === "settings" ? " active" : ""}`} onClick={() => go("settings")}>
+          <IconSettings />Configurações
+        </button>
         <div className="drawer-spacer" />
-        <button style={vars({ "--i": TABS.length })} className="drawer-item danger" onClick={onLogout}><IconLogout /> Sair</button>
+        <button style={vars({ "--i": TABS.length + 1 })} className="drawer-item danger" onClick={onLogout}><IconLogout /> Sair</button>
       </aside>
     </>
   );

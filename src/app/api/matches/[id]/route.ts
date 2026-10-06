@@ -21,15 +21,15 @@ async function view(id: string, uid: string) {
 }
 
 // Pontos: vitoria +3, empate +1 cada, derrota 0.
-async function score(m: Match, r: "X" | "O" | "draw") {
+async function score(tx: any, m: Match, r: "X" | "O" | "draw") {
   if (r === "draw") {
     for (const id of [m.hostId, m.guestId])
-      await db.update(users).set({ points: sql`points + 1`, draws: sql`draws + 1` }).where(eq(users.id, id!));
+      await tx.update(users).set({ points: sql`points + 1`, draws: sql`draws + 1` }).where(eq(users.id, id!));
     return;
   }
   const [w, l] = r === "X" ? [m.hostId, m.guestId] : [m.guestId, m.hostId];
-  await db.update(users).set({ points: sql`points + 3`, wins: sql`wins + 1` }).where(eq(users.id, w!));
-  await db.update(users).set({ losses: sql`losses + 1` }).where(eq(users.id, l!));
+  await tx.update(users).set({ points: sql`points + 3`, wins: sql`wins + 1` }).where(eq(users.id, w!));
+  await tx.update(users).set({ losses: sql`losses + 1` }).where(eq(users.id, l!));
 }
 
 export async function GET(_: Request, { params }: Ctx) {
@@ -62,12 +62,21 @@ export async function POST(req: Request, { params }: Ctx) {
       return Response.json({ error: "Jogada invalida" }, { status: 400 });
     const board = m.board.slice(0, cell) + sym + m.board.slice(cell + 1);
     const res = result(board);
-    // Trava otimista: so aplica se o tabuleiro ainda e o que lemos.
-    const upd = await db.update(matches)
-      .set({ board, turn: sym === "X" ? "O" : "X", status: res ? "done" : "playing", winner: res })
-      .where(and(eq(matches.id, id), eq(matches.board, m.board), eq(matches.status, "playing")));
-    if (upd.rowsAffected === 0) return Response.json({ error: "Tente novamente" }, { status: 409 });
-    if (res) await score(m, res);
+    // Trava otimista e atualizacao de pontos em transacao atomica.
+    try {
+      await db.transaction(async (tx) => {
+        const upd = await tx.update(matches)
+          .set({ board, turn: sym === "X" ? "O" : "X", status: res ? "done" : "playing", winner: res })
+          .where(and(eq(matches.id, id), eq(matches.board, m.board), eq(matches.status, "playing")));
+        if (upd.rowsAffected === 0) throw new Error("optimistic_lock_failed");
+        if (res) await score(tx, m, res);
+      });
+    } catch (e: any) {
+      if (e.message === "optimistic_lock_failed") {
+        return Response.json({ error: "Tente novamente" }, { status: 409 });
+      }
+      throw e;
+    }
   } else return Response.json({ error: "Acao invalida" }, { status: 400 });
 
   return Response.json(await view(id, u.id));

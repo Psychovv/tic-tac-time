@@ -1,5 +1,3 @@
-# Jogo da velha do setor
-
 Next.js 15 + Drizzle + Turso (libSQL). Convites e partidas por polling (2s).
 
 ## Rodar local

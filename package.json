@@ -1,5 +1,5 @@
 {
-  "name": "jogo-da-velha",
+  "name": "tic-tac-time",
   "private": true,
   "scripts": {
     "dev": "next dev",

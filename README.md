@@ -1,4 +1,4 @@
-O jogo da velha online do setor. Next.js 15 + Drizzle + Turso (libSQL). Convites e partidas por polling (2s).
+O jogo da velha online. Next.js 15 + Drizzle + Turso (libSQL). Convites e partidas por polling (2s).
 
 ## Rodar local
 1. `npm install`

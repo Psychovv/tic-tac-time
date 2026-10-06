@@ -1,4 +1,6 @@
-O jogo da velha online. Next.js 15 + Drizzle + Turso (libSQL). Convites e partidas por polling (2s).
+O jogo da velha online (e pedra, papel e tesoura, melhor de 1, 3 ou 5). Next.js 15 + Drizzle + Turso (libSQL). Convites e partidas por polling (2s; 1s durante pedra, papel e tesoura).
+
+> `npm run db:push` aplica o schema no banco apontado por `TURSO_DATABASE_URL` do `.env` (nao necessariamente o `local.db`).
 
 ## Rodar local
 1. `npm install`

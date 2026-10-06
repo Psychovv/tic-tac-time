@@ -10,6 +10,8 @@ import {
   IconSwords, IconShare, IconClose
 } from "@/components/Icons";
 import { Logo, OMark, XMark, vars } from "@/components/Marks";
+import RpsMatch, { EMOJI, gameLabel } from "@/components/Rps";
+import { BEST_OF, type Move } from "@/lib/game";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const post = (url: string, body: object = {}) =>
@@ -26,6 +28,9 @@ export default function Home() {
   const [tab, setTab] = useState<Tab>("jogar");
   const [busy, setBusy] = useState(false);
   const [hasInvite, setHasInvite] = useState(false);
+  // Jogo e formato escolhidos no lobby (valem para procurar, criar link e desafiar jogador).
+  const [setup, setSetup] = useState<{ game: "ttt" | "rps"; bestOf: number }>({ game: "ttt", bestOf: 3 });
+  const fast = m?.game === "rps" && m?.status === "playing";
 
   // Detecta parâmetro de convite na URL
   useEffect(() => {
@@ -34,7 +39,7 @@ export default function Home() {
     }
   }, []);
 
-  // Polling a cada 2s: hub (convites/ranking) e, se estiver numa partida, o estado dela.
+  // Polling a cada 2s (1s em partida de pedra, papel e tesoura): hub (convites/ranking) e, se estiver numa partida, o estado dela.
   useEffect(() => {
     let on = true;
     const tick = async () => {
@@ -56,9 +61,9 @@ export default function Home() {
       } catch { /* rede instavel: tenta no proximo tick */ }
     };
     tick();
-    const t = setInterval(tick, 2000);
+    const t = setInterval(tick, fast ? 1000 : 2000);
     return () => { on = false; clearInterval(t); };
-  }, [mid]);
+  }, [mid, fast]);
 
   // Se tem ?join= na URL e o usuário está logado, entra na partida automaticamente
   useEffect(() => {
@@ -118,14 +123,14 @@ export default function Home() {
   });
 
   const leave = () => { setMid(null); setM(null); };
-  const search = () => run(async () => { const r = await post("/api/matches"); fail(r.error); if (r.id) setMid(r.id); });
+  const search = () => run(async () => { const r = await post("/api/matches", setup); fail(r.error); if (r.id) setMid(r.id); });
   const createLink = () => run(async () => {
-    const r = await post("/api/matches", { isPrivate: true });
+    const r = await post("/api/matches", { isPrivate: true, ...setup });
     fail(r.error);
     if (r.id) { setMid(r.id); setTab("jogar"); }
   });
   const challenge = (targetNickname: string) => run(async () => {
-    const r = await post("/api/matches", { targetNickname, isPrivate: true });
+    const r = await post("/api/matches", { targetNickname, isPrivate: true, ...setup });
     fail(r.error);
     if (r.id) { setMid(r.id); setTab("jogar"); }
   });
@@ -195,7 +200,7 @@ export default function Home() {
                     <div className="challenge-banner-title">
                       <strong>@{c.host}</strong> desafiou você para uma partida!
                     </div>
-                    <div className="mute small">Duelo ao vivo no jogo da velha</div>
+                    <div className="mute small">Duelo ao vivo · {gameLabel(c.game, c.bestOf)}</div>
                   </div>
                 </div>
                 <div className="challenge-banner-actions">
@@ -212,9 +217,9 @@ export default function Home() {
         )}
 
         {tab === "jogar" && (
-          mid && m ? <MatchView key={`m-${mid}`} m={m} busy={busy} onMove={(i) => act(mid, { action: "move", cell: i })} onCancel={cancel} onLeave={leave} onRematch={() => act(mid, { action: "rematch" })} />
+          mid && m ? <MatchView key={`m-${mid}`} m={m} busy={busy} onMove={(i) => act(mid, { action: "move", cell: i })} onPick={(mv) => act(mid, { action: "pick", move: mv })} onCancel={cancel} onLeave={leave} onRematch={() => act(mid, { action: "rematch" })} />
           : mid ? <Splash inline key="loading" />
-          : <Lobby key="lobby" hub={hub} busy={busy} onSearch={search} onCreateLink={createLink} onChallenge={challenge} onAccept={(id) => act(id, { action: "accept" })} onRanking={() => setTab("ranking")} />
+          : <Lobby key="lobby" hub={hub} busy={busy} setup={setup} onSetup={setSetup} onSearch={search} onCreateLink={createLink} onChallenge={challenge} onAccept={(id) => act(id, { action: "accept" })} onRanking={() => setTab("ranking")} />
         )}
         {tab === "ranking" && <RankingView key="ranking" me={hub.me.nickname} onChallenge={challenge} />}
         {tab === "settings" && <SettingsView key="settings" me={hub.me} onUpdate={() => location.reload()} onLogout={logout} />}
@@ -239,9 +244,38 @@ function Dots() {
   return <span className="dots" aria-hidden="true"><span /><span /><span /></span>;
 }
 
-function Lobby({ hub, busy, onSearch, onCreateLink, onChallenge, onAccept, onRanking }: {
+type Setup = { game: "ttt" | "rps"; bestOf: number };
+
+// Escolha do jogo (e do "melhor de" no caso de pedra, papel e tesoura) antes de criar a partida.
+function GameSetup({ setup, onChange }: { setup: Setup; onChange: (s: Setup) => void }) {
+  return (
+    <div className="setup">
+      <div className="seg" role="group" aria-label="Jogo">
+        <button type="button" className={`seg-btn${setup.game === "ttt" ? " active" : ""}`} onClick={() => onChange({ ...setup, game: "ttt" })}>
+          Jogo da velha
+        </button>
+        <button type="button" className={`seg-btn${setup.game === "rps" ? " active" : ""}`} onClick={() => onChange({ ...setup, game: "rps" })}>
+          {EMOJI.R}{EMOJI.P}{EMOJI.S} Pedra, papel e tesoura
+        </button>
+      </div>
+      {setup.game === "rps" && (
+        <div className="seg" role="group" aria-label="Melhor de">
+          {BEST_OF.map((n) => (
+            <button key={n} type="button" className={`seg-btn${setup.bestOf === n ? " active" : ""}`} onClick={() => onChange({ ...setup, bestOf: n })}>
+              Melhor de {n}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Lobby({ hub, busy, setup, onSetup, onSearch, onCreateLink, onChallenge, onAccept, onRanking }: {
   hub: any;
   busy: boolean;
+  setup: Setup;
+  onSetup: (s: Setup) => void;
   onSearch: () => void;
   onCreateLink: () => void;
   onChallenge: (nickname: string) => void;
@@ -267,7 +301,8 @@ function Lobby({ hub, busy, onSearch, onCreateLink, onChallenge, onAccept, onRan
         <div className="hero-text">
           <span className="eyebrow"><IconBolt /> Partida rápida</span>
           <h1>Bora uma partida, <span className="grad">{hub.me.nickname}</span>?</h1>
-          <p className="mute">Crie um link de desafio, desafie um jogador diretamente ou procure uma partida aberta.</p>
+          <p className="mute">Escolha o jogo, depois crie um link de desafio, desafie um jogador diretamente ou procure uma partida aberta.</p>
+          <GameSetup setup={setup} onChange={onSetup} />
         </div>
         <div className="hero-actions">
           <button className="btn btn-primary pulse" onClick={onSearch} disabled={busy}>
@@ -327,7 +362,7 @@ function Lobby({ hub, busy, onSearch, onCreateLink, onChallenge, onAccept, onRan
               {hub.waiting.map((w: any, i: number) => (
                 <div className="row-item" key={w.id} style={vars({ "--i": i })}>
                   <Avatar name={w.host} photo={w.photo} />
-                  <div className="grow"><div className="name">{w.host}</div><div className="sub">quer jogar agora</div></div>
+                  <div className="grow"><div className="name">{w.host}</div><div className="sub">quer jogar · {gameLabel(w.game, w.bestOf)}</div></div>
                   <button className="btn btn-accept" disabled={busy} onClick={() => onAccept(w.id)}>Aceitar</button>
                 </div>
               ))}
@@ -400,7 +435,7 @@ function RankingView({ me, onChallenge }: { me: string; onChallenge?: (nickname:
       <section className="card">
         <div className="card-head">
           <h2 className="card-title"><IconTrophy /> Ranking Geral</h2>
-          <span className="mute small">Vitória +3 · Empate +1</span>
+          <span className="mute small">Velha: Vitória +3 · Empate +1 · Pedra, papel e tesoura: Vitória +1</span>
         </div>
         {ranking.length === 0 ? <RankList rows={[]} me={me} onChallenge={onChallenge} /> : (
           <div className="podium">
@@ -441,7 +476,7 @@ function RankingView({ me, onChallenge }: { me: string; onChallenge?: (nickname:
                 <div key={h.id} className="row-item" style={vars({ "--i": i })}>
                   <div className="grow">
                     <div className="name">{h.host} <span className="mute">vs</span> {h.guest}</div>
-                    <div className="sub">{new Date(h.createdAt).toLocaleString()}</div>
+                    <div className="sub">{gameLabel(h.game, h.bestOf)} · {new Date(h.createdAt).toLocaleString()}</div>
                   </div>
                   <span className={`pts ${draw ? "draw" : won ? "win" : "lose"}`}>
                     {draw ? "Empate" : won ? "Vitória" : "Derrota"}
@@ -465,15 +500,22 @@ function RulesView() {
           <li><div><strong>Procure uma partida.</strong> <span className="mute">Seu desafio aparece no lobby de todo mundo.</span></div></li>
           <li><div><strong>Ou crie um link de desafio.</strong> <span className="mute">Envie no WhatsApp/Slack para jogar com um amigo.</span></div></li>
           <li><div><strong>Ou desafie diretamente pelo ranking.</strong> <span className="mute">Seu colega recebe uma notificação na hora para aceitar.</span></div></li>
-          <li><div><strong>Quem criou joga de <span className="X">X</span> e começa.</strong> <span className="mute">Quem aceitou joga de <span className="O">O</span>.</span></div></li>
+          <li><div><strong>Jogo da velha: quem criou joga de <span className="X">X</span> e começa.</strong> <span className="mute">Quem aceitou joga de <span className="O">O</span>.</span></div></li>
+          <li><div><strong>Pedra, papel e tesoura: os dois escolhem ao mesmo tempo.</strong> <span className="mute">A jogada fica escondida até os dois escolherem. Aí as mãos balançam e o resultado aparece. Empate repete a rodada. Vence quem chegar primeiro à maioria das rodadas (melhor de 1, 3 ou 5).</span></div></li>
         </ol>
       </section>
       <section className="card" style={vars({ "--delay": ".08s" })}>
         <h2 className="card-title"><IconTrophy /> Pontuação</h2>
+        <span className="mute small">Jogo da velha</span>
         <div className="points-grid">
           <div className="point-card win" style={vars({ "--delay": ".15s" })}><b>+3</b><span>Vitória</span></div>
           <div className="point-card draw" style={vars({ "--delay": ".25s" })}><b>+1</b><span>Empate</span></div>
           <div className="point-card lose" style={vars({ "--delay": ".35s" })}><b>0</b><span>Derrota</span></div>
+        </div>
+        <span className="mute small">Pedra, papel e tesoura (por partida, independente do melhor de)</span>
+        <div className="points-grid two">
+          <div className="point-card win" style={vars({ "--delay": ".15s" })}><b>+1</b><span>Vitória</span></div>
+          <div className="point-card lose" style={vars({ "--delay": ".25s" })}><b>0</b><span>Derrota</span></div>
         </div>
       </section>
     </div>
@@ -495,8 +537,8 @@ function Player({ name, sym, active, you, right, winner }: {
   );
 }
 
-function MatchView({ m, busy, onMove, onCancel, onLeave, onRematch }: {
-  m: any; busy: boolean; onMove: (i: number) => void; onCancel: () => void; onLeave: () => void; onRematch: () => void;
+function MatchView({ m, busy, onMove, onPick, onCancel, onLeave, onRematch }: {
+  m: any; busy: boolean; onMove: (i: number) => void; onPick: (move: Move) => void; onCancel: () => void; onLeave: () => void; onRematch: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/?join=${m.id}` : "";
@@ -513,26 +555,30 @@ function MatchView({ m, busy, onMove, onCancel, onLeave, onRematch }: {
   };
 
   const shareWhatsApp = () => {
-    const text = encodeURIComponent(`Bora jogar jogo da velha comigo? Entra aí no link pra gente disputar: ${shareUrl}`);
+    const text = encodeURIComponent(`Bora jogar ${m.game === "rps" ? "pedra, papel e tesoura" : "jogo da velha"} comigo? Entra aí no link pra gente disputar: ${shareUrl}`);
     window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
   };
 
   const mine = m.you === m.turn;
   const playing = m.status === "playing";
   const done = m.status === "done";
-  const outcome: "win" | "lose" | "draw" | null = done ? (m.winner === "draw" ? "draw" : m.winner === m.you ? "win" : "lose") : null;
+  // Em pedra, papel e tesoura o resultado (e o confete) ficam com o RpsMatch, que espera a animacao.
+  const outcome: "win" | "lose" | "draw" | null = done && m.game === "ttt" ? (m.winner === "draw" ? "draw" : m.winner === m.you ? "win" : "lose") : null;
 
   return (
     <div className="view">
       <section className="card match">
-        <div className="players">
-          <Player name={m.host} sym="X" active={playing && m.turn === "X"} you={m.you === "X"} winner={done && m.winner === "X"} />
-          <span className="vs">VS</span>
-          <Player name={m.guest} sym="O" active={playing && m.turn === "O"} you={m.you === "O"} winner={done && m.winner === "O"} right />
-        </div>
+        {m.game === "ttt" && (
+          <div className="players">
+            <Player name={m.host} sym="X" active={playing && m.turn === "X"} you={m.you === "X"} winner={done && m.winner === "X"} />
+            <span className="vs">VS</span>
+            <Player name={m.guest} sym="O" active={playing && m.turn === "O"} you={m.you === "O"} winner={done && m.winner === "O"} right />
+          </div>
+        )}
 
         {m.status === "waiting" ? (
           <div className="waiting">
+            <span className="game-tag">{gameLabel(m.game, m.bestOf)}</span>
             <div className="radar"><span className="radar-sweep" /><i /><Logo /></div>
             <strong>
               {m.target ? (
@@ -578,6 +624,8 @@ function MatchView({ m, busy, onMove, onCancel, onLeave, onRematch }: {
 
             <button className="btn btn-ghost" onClick={onCancel} disabled={busy}>Cancelar Desafio</button>
           </div>
+        ) : m.game === "rps" ? (
+          <RpsMatch m={m} busy={busy} onPick={onPick} onLeave={onLeave} onRematch={onRematch} />
         ) : (
           <>
             <Board board={m.board} you={m.you} canPlay={playing && mine && !busy} onPlay={onMove} />

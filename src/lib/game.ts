@@ -12,3 +12,19 @@ export function winLine(b: string): number[] | null {
     if (b[l[0]] !== "." && b[l[0]] === b[l[1]] && b[l[0]] === b[l[2]]) return l;
   return null;
 }
+
+/* ---------- Pedra, papel e tesoura ---------- */
+export type Move = "R" | "P" | "S";
+export const MOVES: Move[] = ["R", "P", "S"];
+export const BEST_OF = [1, 3, 5] as const;
+
+const BEATS: Record<Move, Move> = { R: "S", S: "P", P: "R" };
+
+/** Resultado de uma rodada: "X" (host), "O" (convidado) ou "draw". */
+export function rpsRound(h: Move, g: Move): "X" | "O" | "draw" {
+  if (h === g) return "draw";
+  return BEATS[h] === g ? "X" : "O";
+}
+
+/** Vitorias necessarias para ganhar uma melhor de N. */
+export const winsNeeded = (bestOf: number) => Math.ceil(bestOf / 2);

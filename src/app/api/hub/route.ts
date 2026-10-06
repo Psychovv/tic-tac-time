@@ -14,7 +14,7 @@ export async function GET() {
 
   // Desafios públicos abertos (não privados e sem alvo específico)
   const waiting = await db
-    .select({ id: matches.id, host: users.nickname, photo: users.photo })
+    .select({ id: matches.id, host: users.nickname, photo: users.photo, game: matches.game, bestOf: matches.bestOf })
     .from(matches).innerJoin(users, eq(users.id, matches.hostId))
     .where(and(
       eq(matches.status, "waiting"),
@@ -27,7 +27,7 @@ export async function GET() {
 
   // Desafios diretos enviados especificamente para o usuário
   const challenges = await db
-    .select({ id: matches.id, host: users.nickname, photo: users.photo, createdAt: matches.createdAt })
+    .select({ id: matches.id, host: users.nickname, photo: users.photo, createdAt: matches.createdAt, game: matches.game, bestOf: matches.bestOf })
     .from(matches).innerJoin(users, eq(users.id, matches.hostId))
     .where(and(
       eq(matches.status, "waiting"),

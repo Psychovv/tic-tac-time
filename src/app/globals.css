@@ -544,3 +544,60 @@ button { cursor: pointer; }
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
   .confetti { display: none; }
 }
+
+/* ---------- Seletor de jogo (lobby) ---------- */
+.setup { display: grid; gap: 8px; margin-top: 6px; }
+.seg { display: inline-flex; flex-wrap: wrap; gap: 4px; width: fit-content; max-width: 100%; padding: 4px; border-radius: 14px; background: rgba(255, 255, 255, .04); border: 1px solid var(--line); }
+.seg-btn { padding: 7px 14px; border: 0; border-radius: 10px; background: none; color: var(--mute); font-weight: 700; font-size: .88rem; transition: color .2s, background .2s, transform .25s var(--spring); }
+.seg-btn:hover:not(.active) { color: var(--txt); background: rgba(255, 255, 255, .06); }
+.seg-btn:active { transform: scale(.96); }
+.seg-btn.active { color: #1d1006; background: linear-gradient(135deg, #ffb547, var(--x) 45%, var(--x2)); box-shadow: 0 6px 18px -8px rgba(255, 107, 107, .7); }
+.game-tag { padding: 4px 12px; border-radius: 999px; font-size: .78rem; font-weight: 700; color: var(--o); background: rgba(56, 189, 248, .1); border: 1px solid rgba(56, 189, 248, .3); }
+.points-grid.two { grid-template-columns: repeat(2, 1fr); }
+
+/* ---------- Pedra, papel e tesoura ---------- */
+.rps-score { display: grid; place-items: center; padding: 0; font-weight: 900; font-size: 1.3rem; font-variant-numeric: tabular-nums; }
+.rps-meta { color: var(--mute); font-size: .85rem; font-weight: 600; text-align: center; }
+.rps-arena { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; justify-items: center; padding: 6px 0; }
+.rps-hand-wrap { display: grid; justify-items: center; }
+.rps-hand {
+  display: grid; place-items: center; width: clamp(104px, 28vw, 160px); aspect-ratio: 1; border-radius: 30px;
+  font-size: clamp(3.6rem, 14vw, 5.8rem); line-height: 1; overflow: hidden;
+  background: rgba(5, 8, 15, .5); border: 1px solid var(--line);
+  transition: border-color .3s, box-shadow .3s, opacity .4s, background .3s;
+}
+.hand-flip { display: block; }
+.rps-hand.r .hand-flip { transform: scaleX(-1); } /* a mao da direita olha para a esquerda */
+.hand-move { display: block; transform-origin: 50% 85%; }
+.rps-hand.idle .hand-move { animation: bob 2.4s ease-in-out infinite; }
+.rps-hand.shake .hand-move { animation: rpsShake .55s ease-in-out 3; }
+.rps-hand.show .hand-move { animation: rpsReveal .55s var(--spring); }
+.rps-hand.win { border-color: rgba(52, 211, 153, .7); box-shadow: 0 0 0 5px rgba(52, 211, 153, .12), 0 16px 40px -14px rgba(52, 211, 153, .7); background: rgba(52, 211, 153, .08); }
+.rps-hand.lose { opacity: .5; }
+.rps-hand.tie { border-color: rgba(56, 189, 248, .6); box-shadow: 0 0 0 5px rgba(56, 189, 248, .1); }
+
+.rps-picks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: min(460px, 100%); }
+.rps-pick {
+  display: grid; justify-items: center; gap: 4px; padding: 16px 8px; border-radius: 18px; font-weight: 700;
+  border: 1px solid var(--line-strong); background: rgba(255, 255, 255, .04);
+  transition: transform .3s var(--spring), background .2s, border-color .2s, opacity .3s, box-shadow .3s;
+}
+.rps-pick .emo { font-size: 2.6rem; line-height: 1.1; }
+.rps-pick:hover:not(:disabled) { transform: translateY(-5px) scale(1.04); background: rgba(255, 255, 255, .09); border-color: var(--x); box-shadow: 0 12px 28px -14px rgba(255, 159, 67, .8); }
+.rps-pick:active:not(:disabled) { transform: scale(.95); }
+.rps-pick:disabled { cursor: default; }
+.rps-pick:disabled:not(.chosen) { opacity: .4; }
+.rps-pick.chosen { border-color: var(--ok); background: rgba(52, 211, 153, .12); box-shadow: 0 0 0 4px rgba(52, 211, 153, .1); }
+
+@keyframes rpsShake {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  25% { transform: translateY(-26px) rotate(-14deg); }
+  50% { transform: translateY(10px) rotate(6deg); }
+  75% { transform: translateY(-14px) rotate(-8deg); }
+}
+@keyframes rpsReveal { from { transform: scale(.3) rotate(-25deg); opacity: 0; } 60% { transform: scale(1.25) rotate(4deg); } }
+
+@media (max-width: 480px) {
+  .rps-score { font-size: 1.1rem; }
+  .rps-pick .emo { font-size: 2.2rem; }
+}

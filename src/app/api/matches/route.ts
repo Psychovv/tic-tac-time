@@ -2,16 +2,20 @@ import { and, eq, inArray, or, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { matches, users } from "@/db/schema";
 import { me } from "@/lib/auth";
+import { BEST_OF } from "@/lib/game";
 
 // Cria um convite "procurando partida", link privado ou desafio direto para jogador.
 export async function POST(req: Request) {
   const u = await me();
   if (!u) return Response.json({ error: "Faça login" }, { status: 401 });
 
-  let body: { isPrivate?: boolean; targetNickname?: string; targetId?: string } = {};
+  let body: { isPrivate?: boolean; targetNickname?: string; targetId?: string; game?: string; bestOf?: number } = {};
   try {
     body = await req.json();
   } catch {}
+
+  const game = body.game === "rps" ? "rps" : "ttt";
+  const bestOf = game === "rps" && (BEST_OF as readonly number[]).includes(Number(body.bestOf)) ? Number(body.bestOf) : 1;
 
   let targetUser: typeof users.$inferSelect | null = null;
   if (body.targetNickname) {
@@ -49,7 +53,8 @@ export async function POST(req: Request) {
 
   const wantsSpecific = Boolean(body.isPrivate || targetUser);
   if (myWaiting) {
-    if (!wantsSpecific) {
+    // Mesmo tipo de convite (e mesma configuracao de jogo): so devolve o que ja existe.
+    if (!wantsSpecific && myWaiting.game === game && myWaiting.bestOf === bestOf) {
       return Response.json({ id: myWaiting.id });
     }
     // Cancela o waiting anterior para criar o novo desafio solicitado
@@ -68,6 +73,8 @@ export async function POST(req: Request) {
     targetId,
     isPrivate,
     turn,
+    game,
+    bestOf,
     createdAt: now,
     updatedAt: now,
   });

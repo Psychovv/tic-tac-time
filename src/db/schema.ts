@@ -29,6 +29,18 @@ export const matches = sqliteTable(
     winner: text("winner"),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at"),
+    // game: "ttt" (jogo da velha) | "rps" (pedra, papel e tesoura).
+    // Campos abaixo so valem para "rps": bestOf (1, 3 ou 5), jogada oculta da rodada
+    // atual ("R" | "P" | "S", ou null se ainda nao jogou), placar, rodadas resolvidas
+    // e o resultado da ultima rodada em JSON ({n, h, g, w}) para a animacao de revelacao.
+    game: text("game").notNull().default("ttt"),
+    bestOf: integer("best_of").notNull().default(1),
+    hostMove: text("host_move"),
+    guestMove: text("guest_move"),
+    hostScore: integer("host_score").notNull().default(0),
+    guestScore: integer("guest_score").notNull().default(0),
+    round: integer("round").notNull().default(0),
+    last: text("last"),
   },
   (t) => [
     index("matches_status_idx").on(t.status),

@@ -46,6 +46,8 @@ export async function GET() {
     host: userMap[m.hostId] ?? "Desconhecido",
     guest: m.guestId ? (userMap[m.guestId] ?? "Desconhecido") : "Desconhecido",
     winner: m.winner,
+    game: m.game,
+    bestOf: m.bestOf,
     you: m.hostId === u.id ? "X" : "O",
     createdAt: m.createdAt
   }));

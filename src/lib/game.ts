@@ -5,3 +5,10 @@ export function result(b: string): "X" | "O" | "draw" | null {
     if (b[a] !== "." && b[a] === b[c] && b[a] === b[d]) return b[a] as "X" | "O";
   return b.includes(".") ? null : "draw";
 }
+
+/** Casas da linha vencedora (para destacar na UI), ou null. */
+export function winLine(b: string): number[] | null {
+  for (const l of LINES)
+    if (b[l[0]] !== "." && b[l[0]] === b[l[1]] && b[l[0]] === b[l[2]]) return l;
+  return null;
+}

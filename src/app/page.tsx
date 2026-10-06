@@ -4,7 +4,11 @@ import { Avatar } from "@/components/Avatar";
 import Board from "@/components/Board";
 import Confetti from "@/components/Confetti";
 import Header, { type Tab } from "@/components/Header";
-import { IconAlert, IconBolt, IconBook, IconSearch, IconTrophy, IconUsers, IconSettings, IconUpload, IconTrash } from "@/components/Icons";
+import {
+  IconAlert, IconBolt, IconBook, IconSearch, IconTrophy, IconUsers,
+  IconSettings, IconUpload, IconTrash, IconLink, IconCopy, IconCheck,
+  IconSwords, IconShare, IconClose
+} from "@/components/Icons";
 import { Logo, OMark, XMark, vars } from "@/components/Marks";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -21,6 +25,14 @@ export default function Home() {
   const [errKey, setErrKey] = useState(0);
   const [tab, setTab] = useState<Tab>("jogar");
   const [busy, setBusy] = useState(false);
+  const [hasInvite, setHasInvite] = useState(false);
+
+  // Detecta parâmetro de convite na URL
+  useEffect(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("join")) {
+      setHasInvite(true);
+    }
+  }, []);
 
   // Polling a cada 2s: hub (convites/ranking) e, se estiver numa partida, o estado dela.
   useEffect(() => {
@@ -33,7 +45,13 @@ export default function Home() {
         if (h.mine && !mid) setMid(h.mine.id);
         if (mid) {
           const r = await fetch(`/api/matches/${mid}`, { cache: "no-store" });
-          if (r.ok && on) setM(await r.json());
+          if (r.ok && on) {
+            setM(await r.json());
+          } else if (r.status === 404 && on) {
+            setMid(null);
+            setM(null);
+            fail("Partida finalizada ou cancelada");
+          }
         }
       } catch { /* rede instavel: tenta no proximo tick */ }
     };
@@ -41,6 +59,32 @@ export default function Home() {
     const t = setInterval(tick, 2000);
     return () => { on = false; clearInterval(t); };
   }, [mid]);
+
+  // Se tem ?join= na URL e o usuário está logado, entra na partida automaticamente
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const joinId = params.get("join");
+    if (!joinId) return;
+
+    if (hub?.me) {
+      if (mid !== joinId) {
+        run(async () => {
+          const r = await post(`/api/matches/${joinId}`, { action: "accept" });
+          if (r.error) {
+            fail(r.error);
+          } else {
+            setMid(joinId);
+            setM(r);
+            setTab("jogar");
+          }
+          window.history.replaceState({}, "", window.location.pathname);
+        });
+      } else {
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    }
+  }, [hub?.me]);
 
   // Entrou numa partida (criou, aceitou ou ja tinha uma aberta): leva pra aba Jogar.
   useEffect(() => { if (mid) setTab("jogar"); }, [mid]);
@@ -66,10 +110,25 @@ export default function Home() {
         setM(r);
         setMid(id);
       }
+    } else if (body && (body as any).action === "decline") {
+      // Se recusou o desafio, atualiza o hub
+      const h = await fetch("/api/hub", { cache: "no-store" }).then((res) => res.json());
+      setHub(h);
     }
   });
+
   const leave = () => { setMid(null); setM(null); };
   const search = () => run(async () => { const r = await post("/api/matches"); fail(r.error); if (r.id) setMid(r.id); });
+  const createLink = () => run(async () => {
+    const r = await post("/api/matches", { isPrivate: true });
+    fail(r.error);
+    if (r.id) { setMid(r.id); setTab("jogar"); }
+  });
+  const challenge = (targetNickname: string) => run(async () => {
+    const r = await post("/api/matches", { targetNickname, isPrivate: true });
+    fail(r.error);
+    if (r.id) { setMid(r.id); setTab("jogar"); }
+  });
   const cancel = () => run(async () => { await post(`/api/matches/${mid}`, { action: "cancel" }); leave(); });
   const login = (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,6 +150,14 @@ export default function Home() {
           <span className="word" style={vars({ "--i": 2 })}><span className="grad">Time</span></span>
         </h1>
         <p className="mute login-sub">O jogo da velha. Desafie a galera e suba no ranking.</p>
+
+        {hasInvite && (
+          <div className="invite-notice">
+            <IconLink />
+            <span>Você recebeu um convite para jogar! Crie ou digite seu apelido abaixo para entrar.</span>
+          </div>
+        )}
+
         <div className="login-form">
           <label className="sr-only" htmlFor="nick">Apelido</label>
           <input id="nick" className="input" value={nick} onChange={(e) => setNick(e.target.value)}
@@ -118,12 +185,38 @@ export default function Home() {
     <>
       <Header tab={tab} onTab={setTab} me={hub.me} live={!!mid} onLogout={logout} />
       <main className="main">
+        {hub.challenges?.length > 0 && !mid && (
+          <div className="challenge-banner-list">
+            {hub.challenges.map((c: any) => (
+              <div key={c.id} className="card challenge-banner">
+                <div className="challenge-banner-info">
+                  <Avatar name={c.host} photo={c.photo} />
+                  <div>
+                    <div className="challenge-banner-title">
+                      <strong>@{c.host}</strong> desafiou você para uma partida!
+                    </div>
+                    <div className="mute small">Duelo ao vivo no jogo da velha</div>
+                  </div>
+                </div>
+                <div className="challenge-banner-actions">
+                  <button className="btn btn-accept btn-sm" disabled={busy} onClick={() => act(c.id, { action: "accept" })}>
+                    Aceitar
+                  </button>
+                  <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => act(c.id, { action: "decline" })}>
+                    Recusar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {tab === "jogar" && (
           mid && m ? <MatchView key={`m-${mid}`} m={m} busy={busy} onMove={(i) => act(mid, { action: "move", cell: i })} onCancel={cancel} onLeave={leave} onRematch={() => act(mid, { action: "rematch" })} />
           : mid ? <Splash inline key="loading" />
-          : <Lobby key="lobby" hub={hub} busy={busy} onSearch={search} onAccept={(id) => act(id, { action: "accept" })} onRanking={() => setTab("ranking")} />
+          : <Lobby key="lobby" hub={hub} busy={busy} onSearch={search} onCreateLink={createLink} onChallenge={challenge} onAccept={(id) => act(id, { action: "accept" })} onRanking={() => setTab("ranking")} />
         )}
-        {tab === "ranking" && <RankingView key="ranking" me={hub.me.nickname} />}
+        {tab === "ranking" && <RankingView key="ranking" me={hub.me.nickname} onChallenge={challenge} />}
         {tab === "settings" && <SettingsView key="settings" me={hub.me} onUpdate={() => location.reload()} onLogout={logout} />}
         {tab === "regras" && <RulesView key="regras" />}
       </main>
@@ -146,9 +239,27 @@ function Dots() {
   return <span className="dots" aria-hidden="true"><span /><span /><span /></span>;
 }
 
-function Lobby({ hub, busy, onSearch, onAccept, onRanking }: {
-  hub: any; busy: boolean; onSearch: () => void; onAccept: (id: string) => void; onRanking: () => void;
+function Lobby({ hub, busy, onSearch, onCreateLink, onChallenge, onAccept, onRanking }: {
+  hub: any;
+  busy: boolean;
+  onSearch: () => void;
+  onCreateLink: () => void;
+  onChallenge: (nickname: string) => void;
+  onAccept: (id: string) => void;
+  onRanking: () => void;
 }) {
+  const [showModal, setShowModal] = useState(false);
+  const [customNick, setCustomNick] = useState("");
+
+  const handleChallengeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = customNick.trim();
+    if (!trimmed) return;
+    setShowModal(false);
+    setCustomNick("");
+    onChallenge(trimmed);
+  };
+
   return (
     <div className="view">
       <section className="card hero">
@@ -156,10 +267,46 @@ function Lobby({ hub, busy, onSearch, onAccept, onRanking }: {
         <div className="hero-text">
           <span className="eyebrow"><IconBolt /> Partida rápida</span>
           <h1>Bora uma partida, <span className="grad">{hub.me.nickname}</span>?</h1>
-          <p className="mute">Crie um desafio e espere alguém aceitar, ou aceite um dos desafios abertos.</p>
+          <p className="mute">Crie um link de desafio, desafie um jogador diretamente ou procure uma partida aberta.</p>
         </div>
-        <button className="btn btn-primary btn-lg pulse" onClick={onSearch} disabled={busy}><IconSearch /> Procurar partida</button>
+        <div className="hero-actions">
+          <button className="btn btn-primary pulse" onClick={onSearch} disabled={busy}>
+            <IconSearch /> Procurar partida
+          </button>
+          <button className="btn btn-link-challenge" onClick={onCreateLink} disabled={busy}>
+            <IconLink /> Criar link de desafio
+          </button>
+          <button className="btn btn-ghost" onClick={() => setShowModal(true)} disabled={busy}>
+            <IconSwords /> Desafiar jogador
+          </button>
+        </div>
       </section>
+
+      {showModal && (
+        <div className="modal-backdrop" onClick={() => setShowModal(false)}>
+          <div className="card modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3 className="modal-title"><IconSwords /> Desafiar jogador</h3>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowModal(false)}><IconClose /></button>
+            </div>
+            <form onSubmit={handleChallengeSubmit} className="modal-body">
+              <p className="mute small">Digite o apelido exato do colega que você quer desafiar:</p>
+              <input
+                className="input"
+                value={customNick}
+                onChange={(e) => setCustomNick(e.target.value)}
+                placeholder="Ex: Carlos, Ana, Leo..."
+                maxLength={20}
+                autoFocus
+              />
+              <div className="modal-foot">
+                <button type="button" className="btn btn-ghost" onClick={() => setShowModal(false)}>Cancelar</button>
+                <button type="submit" className="btn btn-primary" disabled={busy || !customNick.trim()}>Desafiar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <div className="grid-2">
         <section className="card" style={vars({ "--delay": ".08s" })}>
@@ -193,27 +340,37 @@ function Lobby({ hub, busy, onSearch, onAccept, onRanking }: {
             <h2 className="card-title"><IconTrophy /> Top 5</h2>
             <button className="btn btn-ghost btn-sm" onClick={onRanking}>Ver tudo →</button>
           </div>
-          <RankList rows={hub.ranking.slice(0, 5)} me={hub.me.nickname} />
+          <RankList rows={hub.ranking.slice(0, 5)} me={hub.me.nickname} onChallenge={onChallenge} />
         </section>
       </div>
     </div>
   );
 }
 
-function RankList({ rows, me, start = 0 }: { rows: any[]; me: string; start?: number }) {
+function RankList({ rows, me, start = 0, onChallenge }: { rows: any[]; me: string; start?: number; onChallenge?: (nickname: string) => void }) {
   if (!rows.length) return <div className="empty"><span>Ninguém pontuou ainda. Seja o primeiro!</span></div>;
   return (
     <div className="list">
       {rows.map((r, i) => {
         const pos = start + i + 1;
+        const isMe = r.nickname === me;
         return (
-          <div key={r.nickname} className={`row-item${r.nickname === me ? " me" : ""}`} style={vars({ "--i": i })}>
+          <div key={r.nickname} className={`row-item${isMe ? " me" : ""}`} style={vars({ "--i": i })}>
             <span className="rank-pos">{pos <= 3 ? ["🥇", "🥈", "🥉"][pos - 1] : pos}</span>
             <Avatar name={r.nickname} photo={r.photo} />
             <div className="grow">
-              <div className="name">{r.nickname}{r.nickname === me && <span className="you-tag">você</span>}</div>
+              <div className="name">{r.nickname}{isMe && <span className="you-tag">você</span>}</div>
               <div className="sub">{r.wins} {r.wins === 1 ? "vitória" : "vitórias"}</div>
             </div>
+            {!isMe && onChallenge && (
+              <button
+                className="btn-challenge-action"
+                onClick={() => onChallenge(r.nickname)}
+                title={`Desafiar ${r.nickname}`}
+              >
+                <IconSwords /> <span className="btn-challenge-text">Desafiar</span>
+              </button>
+            )}
             <span className="rank-pts">{r.points}<small> pts</small></span>
           </div>
         );
@@ -222,7 +379,7 @@ function RankList({ rows, me, start = 0 }: { rows: any[]; me: string; start?: nu
   );
 }
 
-function RankingView({ me }: { me: string }) {
+function RankingView({ me, onChallenge }: { me: string; onChallenge?: (nickname: string) => void }) {
   const [data, setData] = useState<{ranking: any[], history: any[]} | null>(null);
   useEffect(() => {
     fetch("/api/ranking").then((r) => r.json()).then(setData);
@@ -245,7 +402,7 @@ function RankingView({ me }: { me: string }) {
           <h2 className="card-title"><IconTrophy /> Ranking Geral</h2>
           <span className="mute small">Vitória +3 · Empate +1</span>
         </div>
-        {ranking.length === 0 ? <RankList rows={[]} me={me} /> : (
+        {ranking.length === 0 ? <RankList rows={[]} me={me} onChallenge={onChallenge} /> : (
           <div className="podium">
             {podium.map(({ r, pos, medal, delay }) => r ? (
               <div key={pos} className={`podium-col p${pos}${r.nickname === me ? " me" : ""}`} style={vars({ "--medal": medal, "--delay": delay })}>
@@ -253,12 +410,22 @@ function RankingView({ me }: { me: string }) {
                 <Avatar name={r.nickname} photo={r.photo} />
                 <div className="name">{r.nickname}</div>
                 <div className="rank-pts">{r.points}<small> pts</small></div>
+                {r.nickname !== me && onChallenge && (
+                  <button
+                    className="btn-challenge-action"
+                    onClick={() => onChallenge(r.nickname)}
+                    title={`Desafiar ${r.nickname}`}
+                    style={{ marginTop: "4px" }}
+                  >
+                    <IconSwords /> <span className="btn-challenge-text">Desafiar</span>
+                  </button>
+                )}
                 <div className="podium-block">{pos}</div>
               </div>
             ) : <div key={pos} />)}
           </div>
         )}
-        {ranking.length > 3 && <RankList rows={ranking.slice(3)} me={me} start={3} />}
+        {ranking.length > 3 && <RankList rows={ranking.slice(3)} me={me} start={3} onChallenge={onChallenge} />}
       </section>
 
       <section className="card" style={vars({ "--delay": ".1s" })}>
@@ -296,9 +463,9 @@ function RulesView() {
         <h2 className="card-title"><IconBook /> Como funciona</h2>
         <ol className="steps">
           <li><div><strong>Procure uma partida.</strong> <span className="mute">Seu desafio aparece no lobby de todo mundo.</span></div></li>
-          <li><div><strong>Ou aceite um desafio.</strong> <span className="mute">O primeiro que aceitar leva a vaga.</span></div></li>
+          <li><div><strong>Ou crie um link de desafio.</strong> <span className="mute">Envie no WhatsApp/Slack para jogar com um amigo.</span></div></li>
+          <li><div><strong>Ou desafie diretamente pelo ranking.</strong> <span className="mute">Seu colega recebe uma notificação na hora para aceitar.</span></div></li>
           <li><div><strong>Quem criou joga de <span className="X">X</span> e começa.</strong> <span className="mute">Quem aceitou joga de <span className="O">O</span>.</span></div></li>
-          <li><div><strong>Feche uma linha, coluna ou diagonal.</strong> <span className="mute">Tabuleiro cheio sem vencedor? Deu velha!</span></div></li>
         </ol>
       </section>
       <section className="card" style={vars({ "--delay": ".08s" })}>
@@ -331,6 +498,25 @@ function Player({ name, sym, active, you, right, winner }: {
 function MatchView({ m, busy, onMove, onCancel, onLeave, onRematch }: {
   m: any; busy: boolean; onMove: (i: number) => void; onCancel: () => void; onLeave: () => void; onRematch: () => void;
 }) {
+  const [copied, setCopied] = useState(false);
+  const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/?join=${m.id}` : "";
+
+  const copyLink = async () => {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      // fallback caso clipboard não esteja disponível
+    }
+  };
+
+  const shareWhatsApp = () => {
+    const text = encodeURIComponent(`Bora jogar jogo da velha comigo? Entra aí no link pra gente disputar: ${shareUrl}`);
+    window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
+  };
+
   const mine = m.you === m.turn;
   const playing = m.status === "playing";
   const done = m.status === "done";
@@ -348,9 +534,49 @@ function MatchView({ m, busy, onMove, onCancel, onLeave, onRematch }: {
         {m.status === "waiting" ? (
           <div className="waiting">
             <div className="radar"><span className="radar-sweep" /><i /><Logo /></div>
-            <strong>Procurando adversário<Dots /></strong>
-            <span className="mute">Seu desafio está visível no lobby de todo mundo.</span>
-            <button className="btn" onClick={onCancel} disabled={busy}>Cancelar</button>
+            <strong>
+              {m.target ? (
+                <>Aguardando <span className="grad">@{m.target}</span> aceitar<Dots /></>
+              ) : m.isPrivate ? (
+                <>Aguardando adversário pelo link<Dots /></>
+              ) : (
+                <>Procurando adversário<Dots /></>
+              )}
+            </strong>
+            <span className="mute">
+              {m.target
+                ? `Convite enviado no jogo para @${m.target}. Você também pode copiar o link abaixo:`
+                : m.isPrivate
+                ? "Envie o link abaixo para seu adversário entrar na partida:"
+                : "Seu desafio está visível no lobby público. Ou envie o link direto para um amigo:"}
+            </span>
+
+            <div className="share-box">
+              <div className="share-input-wrap">
+                <IconLink className="share-link-icon" />
+                <input
+                  type="text"
+                  readOnly
+                  value={shareUrl}
+                  className="share-input"
+                  onClick={(e) => (e.target as HTMLInputElement).select()}
+                />
+                <button
+                  type="button"
+                  className={`btn btn-sm ${copied ? "btn-accept" : "btn-primary"}`}
+                  onClick={copyLink}
+                >
+                  {copied ? <><IconCheck /> Copiado!</> : <><IconCopy /> Copiar Link</>}
+                </button>
+              </div>
+              <div className="share-actions">
+                <button type="button" className="btn btn-sm btn-ghost" onClick={shareWhatsApp}>
+                  <IconShare /> Enviar no WhatsApp
+                </button>
+              </div>
+            </div>
+
+            <button className="btn btn-ghost" onClick={onCancel} disabled={busy}>Cancelar Desafio</button>
           </div>
         ) : (
           <>

@@ -22,4 +22,10 @@ export const IconAlert = mk("M12 8v4M12 16h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 
 export const IconSettings = mk("M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2");
 export const IconUpload = mk("M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12");
 export const IconTrash = mk("M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2");
+export const IconLink = mk("M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71");
+export const IconCopy = mk("M8 4v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7.242a2 2 0 0 0-.602-1.43L16.083 2.57A2 2 0 0 0 14.685 2H10a2 2 0 0 0-2 2zM4 8v12a2 2 0 0 0 2 2h8");
+export const IconCheck = mk("M20 6L9 17l-5-5");
+export const IconSwords = mk("M14.5 17.5L3 6V3h3l11.5 11.5M13 19l2 2M19 13l2 2M16 8l5-5M8 16l-5 5");
+export const IconShare = mk("M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13");
+
 

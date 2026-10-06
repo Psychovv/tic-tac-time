@@ -465,6 +465,81 @@ button { cursor: pointer; }
 @keyframes toastIn { from { opacity: 0; transform: translate(-50%, 24px) scale(.9); } }
 @keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
 
+/* ---------- Desafios & Links ---------- */
+.hero-actions { display: flex; flex-direction: column; gap: 10px; min-width: 220px; }
+.btn-link-challenge {
+  background: rgba(56, 189, 248, .12);
+  border-color: rgba(56, 189, 248, .35);
+  color: var(--o);
+}
+.btn-link-challenge:hover:not(:disabled) {
+  background: rgba(56, 189, 248, .22);
+  border-color: var(--o);
+  box-shadow: 0 8px 24px -10px rgba(56, 189, 248, .8);
+}
+
+.challenge-banner-list { display: grid; gap: 10px; margin-bottom: 20px; animation: slideDown .4s var(--spring); }
+.challenge-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 20px;
+  border-radius: 16px; background: linear-gradient(135deg, rgba(255, 159, 67, .12), rgba(20, 27, 46, .92));
+  border: 1px solid rgba(255, 159, 67, .4); box-shadow: 0 10px 30px -10px rgba(255, 159, 67, .4);
+}
+.challenge-banner-info { display: flex; align-items: center; gap: 14px; }
+.challenge-banner-title { font-size: 1rem; }
+.challenge-banner-actions { display: flex; align-items: center; gap: 10px; }
+
+.share-box { width: 100%; max-width: 480px; margin: 12px 0 16px; display: grid; gap: 10px; }
+.share-input-wrap {
+  display: flex; align-items: center; gap: 8px; background: rgba(5, 8, 15, .65);
+  border: 1px solid var(--line-strong); border-radius: 14px; padding: 6px 6px 6px 14px; transition: border-color .2s;
+}
+.share-input-wrap:focus-within { border-color: var(--o); }
+.share-link-icon { color: var(--mute); flex-shrink: 0; }
+.share-input {
+  flex: 1; background: transparent; border: none; color: var(--txt);
+  font-size: .88rem; outline: none; min-width: 0; text-overflow: ellipsis;
+}
+.share-actions { display: flex; justify-content: center; gap: 10px; }
+
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 80; background: rgba(5, 8, 15, .78);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  display: grid; place-items: center; padding: 20px; animation: viewIn .25s var(--ease);
+}
+.modal-card {
+  width: min(440px, 100%); padding: 28px; gap: 18px; border-radius: 20px;
+  background: var(--card-solid); border: 1px solid var(--line-strong);
+  box-shadow: 0 24px 64px -16px rgba(0, 0, 0, .8); animation: cardIn .35s var(--spring);
+}
+.modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.modal-title { margin: 0; display: flex; align-items: center; gap: 10px; font-size: 1.2rem; font-weight: 800; }
+.modal-body { display: grid; gap: 12px; }
+.modal-foot { display: flex; justify-content: flex-end; gap: 10px; }
+
+.btn-challenge-action {
+  opacity: .85; padding: 4px 10px; font-size: .8rem; border: 1px solid rgba(255, 159, 67, .3);
+  color: var(--x); background: rgba(255, 159, 67, .06); border-radius: 999px; transition: all .2s;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.btn-challenge-action:hover {
+  opacity: 1; background: rgba(255, 159, 67, .18); border-color: var(--x); transform: translateY(-1px);
+}
+.invite-notice {
+  width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  border-radius: 12px; background: rgba(56, 189, 248, .1); border: 1px solid rgba(56, 189, 248, .3);
+  color: var(--o); font-size: .88rem; font-weight: 600; text-align: left;
+}
+
+@media (max-width: 720px) {
+  .hero-actions { width: 100%; }
+  .challenge-banner { flex-direction: column; align-items: flex-start; }
+  .challenge-banner-actions { width: 100%; justify-content: flex-end; }
+}
+@media (max-width: 480px) {
+  .btn-challenge-text { display: none; }
+  .btn-challenge-action { padding: 4px 8px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
   .confetti { display: none; }

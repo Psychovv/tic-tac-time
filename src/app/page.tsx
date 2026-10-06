@@ -58,7 +58,15 @@ export default function Home() {
   const act = (id: string, body: object) => run(async () => {
     const r = await post(`/api/matches/${id}`, body);
     fail(r.error);
-    if (r.id) { setM(r); setMid(id); }
+    if (r.id) {
+      if (r.id !== id) {
+        setMid(r.id);
+        setM(null);
+      } else {
+        setM(r);
+        setMid(id);
+      }
+    }
   });
   const leave = () => { setMid(null); setM(null); };
   const search = () => run(async () => { const r = await post("/api/matches"); fail(r.error); if (r.id) setMid(r.id); });

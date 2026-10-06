@@ -4,6 +4,6 @@ export default defineConfig({
   schema: "./src/db/schema.ts",
   dbCredentials: {
     url: process.env.TURSO_DATABASE_URL ?? "file:local.db",
-    authToken: process.env.TURSO_AUTH_TOKEN,
+    authToken: process.env.TURSO_AUTH_TOKEN || undefined, // vazio no .env local quebra o drizzle-kit
   },
 });

@@ -111,11 +111,11 @@ export default function Home() {
       <Header tab={tab} onTab={setTab} me={hub.me} live={!!mid} onLogout={logout} />
       <main className="main">
         {tab === "jogar" && (
-          mid && m ? <MatchView key={`m-${mid}`} m={m} busy={busy} onMove={(i) => act(mid, { action: "move", cell: i })} onCancel={cancel} onLeave={leave} />
+          mid && m ? <MatchView key={`m-${mid}`} m={m} busy={busy} onMove={(i) => act(mid, { action: "move", cell: i })} onCancel={cancel} onLeave={leave} onRematch={() => act(mid, { action: "rematch" })} />
           : mid ? <Splash inline key="loading" />
           : <Lobby key="lobby" hub={hub} busy={busy} onSearch={search} onAccept={(id) => act(id, { action: "accept" })} onRanking={() => setTab("ranking")} />
         )}
-        {tab === "ranking" && <RankingView key="ranking" ranking={hub.ranking} me={hub.me.nickname} />}
+        {tab === "ranking" && <RankingView key="ranking" me={hub.me.nickname} />}
         {tab === "regras" && <RulesView key="regras" />}
       </main>
       <footer className="footer"><Logo /> Tic Tac Time · feito pra descontrair o setor</footer>
@@ -213,18 +213,27 @@ function RankList({ rows, me, start = 0 }: { rows: any[]; me: string; start?: nu
   );
 }
 
-function RankingView({ ranking, me }: { ranking: any[]; me: string }) {
+function RankingView({ me }: { me: string }) {
+  const [data, setData] = useState<{ranking: any[], history: any[]} | null>(null);
+  useEffect(() => {
+    fetch("/api/ranking").then((r) => r.json()).then(setData);
+  }, []);
+
+  if (!data) return <Splash />;
+  const { ranking, history } = data;
+
   // Podio na ordem visual 2o, 1o, 3o.
   const podium = [
     { r: ranking[1], pos: 2, medal: "#cbd5e1", delay: ".15s" },
     { r: ranking[0], pos: 1, medal: "#fbbf24", delay: "0s" },
     { r: ranking[2], pos: 3, medal: "#e08a3c", delay: ".3s" },
   ];
+
   return (
     <div className="view">
       <section className="card">
         <div className="card-head">
-          <h2 className="card-title"><IconTrophy /> Ranking · Top 10</h2>
+          <h2 className="card-title"><IconTrophy /> Ranking Geral</h2>
           <span className="mute small">Vitória +3 · Empate +1</span>
         </div>
         {ranking.length === 0 ? <RankList rows={[]} me={me} /> : (
@@ -241,6 +250,31 @@ function RankingView({ ranking, me }: { ranking: any[]; me: string }) {
           </div>
         )}
         {ranking.length > 3 && <RankList rows={ranking.slice(3)} me={me} start={3} />}
+      </section>
+
+      <section className="card" style={vars({ "--delay": ".1s" })}>
+        <div className="card-head">
+          <h2 className="card-title"><IconBook /> Seu Histórico</h2>
+        </div>
+        {!history.length ? <div className="empty"><span>Você ainda não jogou nenhuma partida.</span></div> : (
+          <div className="list">
+            {history.map((h: any, i: number) => {
+              const won = h.winner === h.you;
+              const draw = h.winner === "draw";
+              return (
+                <div key={h.id} className="row-item" style={vars({ "--i": i })}>
+                  <div className="grow">
+                    <div className="name">{h.host} <span className="mute">vs</span> {h.guest}</div>
+                    <div className="sub">{new Date(h.createdAt).toLocaleString()}</div>
+                  </div>
+                  <span className={`pts ${draw ? "draw" : won ? "win" : "lose"}`}>
+                    {draw ? "Empate" : won ? "Vitória" : "Derrota"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
     </div>
   );
@@ -285,8 +319,8 @@ function Player({ name, sym, active, you, right, winner }: {
   );
 }
 
-function MatchView({ m, busy, onMove, onCancel, onLeave }: {
-  m: any; busy: boolean; onMove: (i: number) => void; onCancel: () => void; onLeave: () => void;
+function MatchView({ m, busy, onMove, onCancel, onLeave, onRematch }: {
+  m: any; busy: boolean; onMove: (i: number) => void; onCancel: () => void; onLeave: () => void; onRematch: () => void;
 }) {
   const mine = m.you === m.turn;
   const playing = m.status === "playing";
@@ -323,7 +357,10 @@ function MatchView({ m, busy, onMove, onCancel, onLeave }: {
               <div className={`result ${outcome}`} aria-live="polite">
                 <h2>{outcome === "win" ? "Você venceu!" : outcome === "lose" ? "Não foi dessa vez" : "Deu velha!"}</h2>
                 <span className={`pts ${outcome}`}>{outcome === "win" ? "+3 pontos" : outcome === "draw" ? "+1 ponto" : "0 pontos"}</span>
-                <button className="btn btn-primary" onClick={onLeave}>Voltar ao lobby</button>
+                <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+                  <button className="btn" onClick={onLeave}>Sair</button>
+                  <button className="btn btn-primary" disabled={busy} onClick={onRematch}>Revanche</button>
+                </div>
               </div>
             )}
           </>

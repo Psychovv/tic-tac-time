@@ -77,6 +77,24 @@ export async function POST(req: Request, { params }: Ctx) {
       }
       throw e;
     }
+  } else if (action === "rematch") {
+    const m = (await db.select().from(matches).where(eq(matches.id, id)))[0];
+    if (!m) return Response.json({ error: "Partida não encontrada" }, { status: 404 });
+    const opponentId = u.id === m.hostId ? m.guestId : m.hostId;
+    
+    // Verifica se o oponente já criou uma partida esperando
+    const existing = await db.select().from(matches).where(
+      and(eq(matches.status, "waiting"), eq(matches.hostId, opponentId!))
+    ).limit(1);
+
+    if (existing[0]) {
+      await db.update(matches).set({ guestId: u.id, status: "playing" }).where(eq(matches.id, existing[0].id));
+      return Response.json({ id: existing[0].id });
+    } else {
+      const newId = crypto.randomUUID();
+      await db.insert(matches).values({ id: newId, hostId: u.id, createdAt: Date.now() });
+      return Response.json({ id: newId });
+    }
   } else return Response.json({ error: "Acao invalida" }, { status: 400 });
 
   return Response.json(await view(id, u.id));

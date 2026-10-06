@@ -19,6 +19,5 @@ corrigir o que quebrar e testar com duas abas (convite, aceitar, jogadas, vitori
 ## Pendencias (ordem sugerida)
 1. Abandono: partida `playing` sem jogada ha X min vira derrota por W.O. (hoje trava os dois jogadores). Convites `waiting` velhos podem ser limpos.
 2. `score()` nao e atomico com o update da partida; usar `db.batch` ou transacao.
-3. Impedir apelido de outra pessoa (hoje quem digita o apelido assume a conta): senha simples, PIN ou login corporativo.
-4. Ranking completo (pagina propria), historico de partidas, rematch.
-5. Polish de UI e acessibilidade; testes da logica em `src/lib/game.ts`.
+3. Ranking completo (pagina propria), historico de partidas, rematch.
+4. Polish de UI e acessibilidade; testes da logica em `src/lib/game.ts`.

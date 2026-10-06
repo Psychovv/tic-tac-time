@@ -16,6 +16,7 @@ export default function Home() {
   const [mid, setMid] = useState<string | null>(null);
   const [m, setM] = useState<any>(null);
   const [nick, setNick] = useState("");
+  const [pin, setPin] = useState("");
   const [err, setErr] = useState("");
   const [errKey, setErrKey] = useState(0);
   const [tab, setTab] = useState<Tab>("jogar");
@@ -64,7 +65,7 @@ export default function Home() {
   const cancel = () => run(async () => { await post(`/api/matches/${mid}`, { action: "cancel" }); leave(); });
   const login = (e: React.FormEvent) => {
     e.preventDefault();
-    run(async () => { const r = await post("/api/login", { nickname: nick }); fail(r.error); if (r.ok) location.reload(); });
+    run(async () => { const r = await post("/api/login", { nickname: nick, pin }); fail(r.error); if (r.ok) location.reload(); });
   };
   const logout = () => run(async () => { await post("/api/logout"); location.reload(); });
 
@@ -85,8 +86,12 @@ export default function Home() {
         <div className="login-form">
           <label className="sr-only" htmlFor="nick">Apelido</label>
           <input id="nick" className="input" value={nick} onChange={(e) => setNick(e.target.value)}
-            placeholder="Como você quer ser chamado?" maxLength={20} autoFocus autoComplete="nickname" />
-          <button className="btn btn-primary btn-lg" disabled={busy || nick.trim().length < 2}>Entrar no jogo</button>
+            placeholder="Como você quer ser chamado?" maxLength={20} autoFocus autoComplete="username" />
+          <label className="sr-only" htmlFor="pin">PIN (4 números)</label>
+          <input id="pin" className="input" type="password" inputMode="numeric" pattern="\d{4}" maxLength={4}
+            value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+            placeholder="PIN (4 números)" autoComplete="current-password" />
+          <button className="btn btn-primary btn-lg" disabled={busy || nick.trim().length < 2 || pin.length !== 4}>Entrar no jogo</button>
         </div>
         {hub.ranking?.length > 0 && (
           <div className="login-top">

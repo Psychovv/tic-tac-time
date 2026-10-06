@@ -114,7 +114,8 @@ export async function POST(req: Request, { params }: Ctx) {
       return Response.json({ id: existing[0].id });
     } else {
       const newId = crypto.randomUUID();
-      await db.insert(matches).values({ id: newId, hostId: u.id, createdAt: now, updatedAt: now });
+      const turn = Math.random() > 0.5 ? "X" : "O";
+      await db.insert(matches).values({ id: newId, hostId: u.id, turn, createdAt: now, updatedAt: now });
       return Response.json({ id: newId });
     }
   } else return Response.json({ error: "Acao invalida" }, { status: 400 });

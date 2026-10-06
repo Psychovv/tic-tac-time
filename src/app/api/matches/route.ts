@@ -21,6 +21,7 @@ export async function POST() {
   
   const id = crypto.randomUUID();
   const now = Date.now();
-  await db.insert(matches).values({ id, hostId: u.id, createdAt: now, updatedAt: now });
+  const turn = Math.random() > 0.5 ? "X" : "O";
+  await db.insert(matches).values({ id, hostId: u.id, turn, createdAt: now, updatedAt: now });
   return Response.json({ id });
 }

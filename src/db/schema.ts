@@ -21,6 +21,8 @@ export const matches = sqliteTable(
     id: text("id").primaryKey(),
     hostId: text("host_id").notNull(),
     guestId: text("guest_id"),
+    targetId: text("target_id"),
+    isPrivate: integer("is_private").notNull().default(0),
     board: text("board").notNull().default("........."),
     turn: text("turn").notNull().default("X"),
     status: text("status").notNull().default("waiting"),
@@ -28,5 +30,8 @@ export const matches = sqliteTable(
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at"),
   },
-  (t) => [index("matches_status_idx").on(t.status)]
+  (t) => [
+    index("matches_status_idx").on(t.status),
+    index("matches_target_idx").on(t.targetId),
+  ]
 );

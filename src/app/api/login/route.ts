@@ -27,7 +27,7 @@ export async function POST(req: Request) {
       pin: hashPin(p),
       attempts: 0,
       lockedAt: null,
-      points: 0, wins: 0, losses: 0, draws: 0 
+      points: 0, wins: 0, losses: 0, draws: 0, photo: null 
     };
     await db.insert(users).values(u);
   } else {

@@ -20,3 +20,6 @@ export const IconSearch = mk("M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-
 export const IconBolt = mk("M13 2L3 14h9l-1 8 10-12h-9l1-8z");
 export const IconAlert = mk("M12 8v4M12 16h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z");
 export const IconSettings = mk("M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2");
+export const IconUpload = mk("M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12");
+export const IconTrash = mk("M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2");
+

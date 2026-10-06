@@ -27,7 +27,22 @@ export async function POST(req: Request) {
     }
 
     if (photo !== undefined) {
-      updates.photo = photo; // base64, url, or null
+      if (photo === null || photo === "") {
+        updates.photo = null;
+      } else if (typeof photo === "string") {
+        if (photo.startsWith("http://") || photo.startsWith("https://")) {
+          return Response.json({ error: "A foto de perfil deve ser anexada como imagem e não como URL" }, { status: 400 });
+        }
+        if (!photo.startsWith("data:image/")) {
+          return Response.json({ error: "A foto de perfil deve ser anexada como imagem" }, { status: 400 });
+        }
+        if (photo.length > 2 * 1024 * 1024) {
+          return Response.json({ error: "A imagem anexada é muito grande" }, { status: 400 });
+        }
+        updates.photo = photo;
+      } else {
+        return Response.json({ error: "Formato de imagem inválido" }, { status: 400 });
+      }
     }
 
     if (oldPin && newPin) {

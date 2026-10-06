@@ -1,10 +1,10 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/Avatar";
 import Board from "@/components/Board";
 import Confetti from "@/components/Confetti";
 import Header, { type Tab } from "@/components/Header";
-import { IconAlert, IconBolt, IconBook, IconSearch, IconTrophy, IconUsers, IconSettings } from "@/components/Icons";
+import { IconAlert, IconBolt, IconBook, IconSearch, IconTrophy, IconUsers, IconSettings, IconUpload, IconTrash } from "@/components/Icons";
 import { Logo, OMark, XMark, vars } from "@/components/Marks";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -388,6 +388,65 @@ function SettingsView({ me, onUpdate, onLogout }: { me: any; onUpdate: () => voi
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const processFile = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      setErr("Por favor, selecione um arquivo de imagem (PNG, JPG, WebP, etc.)");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setErr("A imagem selecionada é muito grande (máximo 10MB)");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    setErr("");
+    const reader = new FileReader();
+    reader.onerror = () => setErr("Falha ao ler o arquivo");
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => setErr("Falha ao processar a imagem");
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          const MAX_DIM = 256;
+          const size = Math.min(img.width, img.height);
+          const startX = (img.width - size) / 2;
+          const startY = (img.height - size) / 2;
+          const targetDim = Math.min(size, MAX_DIM);
+          canvas.width = targetDim;
+          canvas.height = targetDim;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, startX, startY, size, size, 0, 0, targetDim, targetDim);
+            let dataUrl = canvas.toDataURL("image/webp", 0.85);
+            if (!dataUrl.startsWith("data:image/webp")) {
+              dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+            }
+            setPhoto(dataUrl);
+          } else {
+            setPhoto(reader.result as string);
+          }
+        } catch {
+          setPhoto(reader.result as string);
+        }
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
+  };
+
+  const handleRemovePhoto = () => {
+    setPhoto("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   const saveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -430,14 +489,43 @@ function SettingsView({ me, onUpdate, onLogout }: { me: any; onUpdate: () => voi
     <div className="view">
       <section className="card">
         <h2 className="card-title"><IconSettings /> Configurações de Perfil</h2>
-        {msg && <div className="toast" style={{position:'static', marginBottom:'1rem', background:'var(--c-win)', color:'#fff'}}>{msg}</div>}
+        {msg && <div className="toast" style={{position:'static', marginBottom:'1rem', background:'var(--ok)', color:'#fff'}}>{msg}</div>}
         {err && <div className="toast" style={{position:'static', marginBottom:'1rem'}}>{err}</div>}
         
-        <form onSubmit={saveProfile} style={{display:'flex', flexDirection:'column', gap:'1rem', marginBottom:'2rem'}}>
+        <form onSubmit={saveProfile} style={{display:'flex', flexDirection:'column', gap:'1.25rem', marginBottom:'2rem'}}>
           <div>
-            <label className="eyebrow" style={{display:'block', marginBottom:'0.5rem'}}>Avatar (URL da imagem)</label>
-            <input className="input" type="url" value={photo} onChange={e => setPhoto(e.target.value)} placeholder="https://..." />
-            {photo && <div style={{marginTop:'1rem'}}><Avatar name={nick} photo={photo} className="lg" /></div>}
+            <label className="eyebrow" style={{display:'block', marginBottom:'0.75rem'}}>Foto de Perfil</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
+              <Avatar name={nick} photo={photo} className="xl" />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    id="avatar-file-input"
+                    onChange={handleFileChange}
+                  />
+                  <label htmlFor="avatar-file-input" className="btn btn-sm" style={{ cursor: 'pointer' }}>
+                    <IconUpload /> {photo ? "Trocar imagem" : "Anexar imagem"}
+                  </label>
+                  {photo && (
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      style={{ color: 'var(--err)', borderColor: 'rgba(255, 123, 123, 0.3)' }}
+                      onClick={handleRemovePhoto}
+                    >
+                      <IconTrash /> Remover
+                    </button>
+                  )}
+                </div>
+                <span className="mute" style={{ fontSize: '0.8rem' }}>
+                  Anexe uma imagem do seu dispositivo (PNG, JPG, WebP).
+                </span>
+              </div>
+            </div>
           </div>
           <div>
             <label className="eyebrow" style={{display:'block', marginBottom:'0.5rem'}}>Apelido</label>
@@ -446,7 +534,7 @@ function SettingsView({ me, onUpdate, onLogout }: { me: any; onUpdate: () => voi
           <button type="submit" className="btn btn-primary" disabled={busy}>Salvar Perfil</button>
         </form>
 
-        <hr style={{border:'none', borderTop:'1px solid var(--c-bord)', margin:'2rem 0'}} />
+        <hr style={{border:'none', borderTop:'1px solid var(--line)', margin:'2rem 0'}} />
         <h2 className="card-title">Mudar PIN</h2>
         <form onSubmit={savePin} style={{display:'flex', flexDirection:'column', gap:'1rem', marginBottom:'2rem'}}>
           <div>
@@ -460,9 +548,9 @@ function SettingsView({ me, onUpdate, onLogout }: { me: any; onUpdate: () => voi
           <button type="submit" className="btn" disabled={busy || newPin.length !== 4 || oldPin.length !== 4}>Alterar PIN</button>
         </form>
 
-        <hr style={{border:'none', borderTop:'1px solid var(--c-bord)', margin:'2rem 0'}} />
-        <h2 className="card-title" style={{color:'var(--c-err)'}}>Zona de Perigo</h2>
-        <button className="btn danger" disabled={busy} onClick={deleteAccount}>Excluir minha conta</button>
+        <hr style={{border:'none', borderTop:'1px solid var(--line)', margin:'2rem 0'}} />
+        <h2 className="card-title" style={{color:'var(--err)'}}>Zona de Perigo</h2>
+        <button className="btn" style={{color:'var(--err)', borderColor:'rgba(255, 123, 123, 0.3)'}} disabled={busy} onClick={deleteAccount}>Excluir minha conta</button>
       </section>
     </div>
   );

@@ -248,6 +248,7 @@ button { cursor: pointer; }
   background: linear-gradient(135deg, hsl(var(--h) 90% 72%), hsl(calc(var(--h) + 40) 80% 60%));
 }
 .avatar.lg { width: 44px; height: 44px; font-size: 1rem; }
+.avatar.xl { width: 64px; height: 64px; font-size: 1.35rem; }
 
 /* ---------- Lobby ---------- */
 .hero { position: relative; overflow: hidden; grid-template-columns: 1fr auto; align-items: center; gap: 24px; padding: 30px; }

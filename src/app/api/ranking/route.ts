@@ -11,7 +11,7 @@ export async function GET() {
 
   // Pega o ranking completo
   const ranking = await db
-    .select({ nickname: users.nickname, points: users.points, wins: users.wins, draws: users.draws, losses: users.losses })
+    .select({ nickname: users.nickname, points: users.points, wins: users.wins, draws: users.draws, losses: users.losses, photo: users.photo })
     .from(users)
     .orderBy(desc(users.points));
 

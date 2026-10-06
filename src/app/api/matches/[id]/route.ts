@@ -1,4 +1,4 @@
-import { and, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { matches, users } from "@/db/schema";
 import { me } from "@/lib/auth";
@@ -10,12 +10,16 @@ type Match = typeof matches.$inferSelect;
 async function view(id: string, uid: string) {
   const m = (await db.select().from(matches).where(eq(matches.id, id)))[0];
   if (!m) return null;
-  const ids = [m.hostId, m.guestId].filter(Boolean) as string[];
-  const us = await db.select({ id: users.id, nickname: users.nickname }).from(users).where(inArray(users.id, ids));
+  const ids = [m.hostId, m.guestId, m.targetId].filter(Boolean) as string[];
+  const us = ids.length > 0
+    ? await db.select({ id: users.id, nickname: users.nickname }).from(users).where(inArray(users.id, ids))
+    : [];
   const name = (i: string | null) => us.find((x) => x.id === i)?.nickname ?? null;
   return {
     id: m.id, board: m.board, turn: m.turn, status: m.status, winner: m.winner,
     host: name(m.hostId), guest: name(m.guestId),
+    target: name(m.targetId),
+    isPrivate: m.isPrivate === 1,
     you: m.hostId === uid ? "X" : m.guestId === uid ? "O" : null,
   };
 }
@@ -68,10 +72,29 @@ export async function POST(req: Request, { params }: Ctx) {
   const now = Date.now();
 
   if (action === "accept") {
-    // Atomico: so um jogador consegue aceitar.
+    const current = (await db.select().from(matches).where(eq(matches.id, id)))[0];
+    if (!current) return Response.json({ error: "Partida não encontrada" }, { status: 404 });
+    if (current.hostId === u.id) return Response.json({ error: "Você é o criador desta partida" }, { status: 400 });
+    if (current.status !== "waiting") return Response.json({ error: "Este convite já foi aceito ou encerrado" }, { status: 409 });
+    if (current.targetId && current.targetId !== u.id) {
+      return Response.json({ error: "Este desafio foi enviado para outro jogador" }, { status: 403 });
+    }
+
+    // Atomico: so o alvo ou qualquer um (se sem alvo) consegue aceitar.
     const r = await db.update(matches).set({ guestId: u.id, status: "playing", updatedAt: now })
-      .where(and(eq(matches.id, id), eq(matches.status, "waiting"), ne(matches.hostId, u.id)));
-    if (r.rowsAffected === 0) return Response.json({ error: "Convite indisponivel" }, { status: 409 });
+      .where(and(
+        eq(matches.id, id),
+        eq(matches.status, "waiting"),
+        ne(matches.hostId, u.id),
+        or(isNull(matches.targetId), eq(matches.targetId, u.id))
+      ));
+    if (r.rowsAffected === 0) return Response.json({ error: "Convite indisponível" }, { status: 409 });
+  } else if (action === "decline") {
+    const r = await db.delete(matches).where(
+      and(eq(matches.id, id), eq(matches.status, "waiting"), eq(matches.targetId, u.id))
+    );
+    if (r.rowsAffected === 0) return Response.json({ error: "Desafio indisponível" }, { status: 404 });
+    return Response.json({ ok: true });
   } else if (action === "cancel") {
     await db.delete(matches).where(and(eq(matches.id, id), eq(matches.hostId, u.id), eq(matches.status, "waiting")));
     return Response.json({ ok: true });
@@ -115,7 +138,15 @@ export async function POST(req: Request, { params }: Ctx) {
     } else {
       const newId = crypto.randomUUID();
       const turn = Math.random() > 0.5 ? "X" : "O";
-      await db.insert(matches).values({ id: newId, hostId: u.id, turn, createdAt: now, updatedAt: now });
+      await db.insert(matches).values({
+        id: newId,
+        hostId: u.id,
+        targetId: opponentId,
+        isPrivate: 1,
+        turn,
+        createdAt: now,
+        updatedAt: now,
+      });
       return Response.json({ id: newId });
     }
   } else return Response.json({ error: "Acao invalida" }, { status: 400 });

@@ -435,7 +435,7 @@ function RankingView({ me, onChallenge }: { me: string; onChallenge?: (nickname:
       <section className="card">
         <div className="card-head">
           <h2 className="card-title"><IconTrophy /> Ranking Geral</h2>
-          <span className="mute small">Velha: Vitória +3 · Empate +1 · Pedra, papel e tesoura: Vitória +1</span>
+          <span className="mute small">Velha: Vitória +3 · Empate 0 · Pedra, papel e tesoura: Vitória +1</span>
         </div>
         {ranking.length === 0 ? <RankList rows={[]} me={me} onChallenge={onChallenge} /> : (
           <div className="podium">
@@ -509,7 +509,7 @@ function RulesView() {
         <span className="mute small">Jogo da velha</span>
         <div className="points-grid">
           <div className="point-card win" style={vars({ "--delay": ".15s" })}><b>+3</b><span>Vitória</span></div>
-          <div className="point-card draw" style={vars({ "--delay": ".25s" })}><b>+1</b><span>Empate</span></div>
+          <div className="point-card draw" style={vars({ "--delay": ".25s" })}><b>0</b><span>Empate</span></div>
           <div className="point-card lose" style={vars({ "--delay": ".35s" })}><b>0</b><span>Derrota</span></div>
         </div>
         <span className="mute small">Pedra, papel e tesoura (por partida, independente do melhor de)</span>
@@ -639,7 +639,7 @@ function MatchView({ m, busy, onMove, onPick, onCancel, onLeave, onRematch }: {
             {outcome && (
               <div className={`result ${outcome}`} aria-live="polite">
                 <h2>{outcome === "win" ? "Você venceu!" : outcome === "lose" ? "Não foi dessa vez" : "Deu velha!"}</h2>
-                <span className={`pts ${outcome}`}>{outcome === "win" ? "+3 pontos" : outcome === "draw" ? "+1 ponto" : "0 pontos"}</span>
+                <span className={`pts ${outcome}`}>{outcome === "win" ? "+3 pontos" : "0 pontos"}</span>
                 <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
                   <button className="btn" onClick={onLeave}>Sair</button>
                   <button className="btn btn-primary" disabled={busy} onClick={onRematch}>Revanche</button>

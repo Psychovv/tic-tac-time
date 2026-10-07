@@ -32,13 +32,13 @@ async function view(id: string, uid: string) {
   };
 }
 
-// Pontos: jogo da velha: vitoria +3, empate +1 cada, derrota 0.
+// Pontos: jogo da velha: vitoria +3, empate 0, derrota 0.
 // Pedra, papel e tesoura: vitoria da partida +1, derrota 0 (sem empate de partida).
 async function score(tx: any, m: Match, r: "X" | "O" | "draw") {
   if (r === "draw") {
     if (m.game === "rps") return;
     for (const id of [m.hostId, m.guestId])
-      await tx.update(users).set({ points: sql`points + 1`, draws: sql`draws + 1` }).where(eq(users.id, id!));
+      await tx.update(users).set({ draws: sql`draws + 1` }).where(eq(users.id, id!));
     return;
   }
   const [w, l] = r === "X" ? [m.hostId, m.guestId] : [m.guestId, m.hostId];

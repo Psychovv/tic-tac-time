@@ -540,8 +540,21 @@ button { cursor: pointer; }
   .btn-challenge-action { padding: 4px 8px; }
 }
 
+/* So reduz fundo/ambient — nao mata o gradiente do "Time", maos do RPS, marcas etc.
+   O seletor * com !important apagava tudo no Windows com "Animacoes" desligado. */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  .bg-grid,
+  .bg-shape,
+  .hero-deco,
+  .hero::after,
+  .radar::before,
+  .radar::after,
+  .radar i,
+  .radar .spin,
+  .pulse:not(:disabled),
+  .empty-board i,
+  .live-dot,
+  .live::before { animation: none !important; }
   .confetti { display: none; }
 }
 

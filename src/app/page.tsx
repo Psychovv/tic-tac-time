@@ -10,8 +10,10 @@ import {
   IconSwords, IconShare, IconClose
 } from "@/components/Icons";
 import { Logo, OMark, XMark, vars } from "@/components/Marks";
+import NavalMatch from "@/components/Naval";
 import RpsMatch, { EMOJI, gameLabel } from "@/components/Rps";
 import { BEST_OF, type Move } from "@/lib/game";
+import type { Ship } from "@/lib/naval";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const post = (url: string, body: object = {}) =>
@@ -29,7 +31,7 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [hasInvite, setHasInvite] = useState(false);
   // Jogo e formato escolhidos no lobby (valem para procurar, criar link e desafiar jogador).
-  const [setup, setSetup] = useState<{ game: "ttt" | "rps"; bestOf: number }>({ game: "ttt", bestOf: 3 });
+  const [setup, setSetup] = useState<{ game: "ttt" | "rps" | "naval"; bestOf: number }>({ game: "ttt", bestOf: 3 });
   const fast = m?.game === "rps" && m?.status === "playing";
 
   // Detecta parâmetro de convite na URL
@@ -217,7 +219,20 @@ export default function Home() {
         )}
 
         {tab === "jogar" && (
-          mid && m ? <MatchView key={`m-${mid}`} m={m} busy={busy} onMove={(i) => act(mid, { action: "move", cell: i })} onPick={(mv) => act(mid, { action: "pick", move: mv })} onCancel={cancel} onLeave={leave} onRematch={() => act(mid, { action: "rematch" })} />
+          mid && m ? (
+            <MatchView
+              key={`m-${mid}`}
+              m={m}
+              busy={busy}
+              onMove={(i) => act(mid, { action: "move", cell: i })}
+              onPick={(mv) => act(mid, { action: "pick", move: mv })}
+              onPlace={(ships) => act(mid, { action: "place", ships })}
+              onFire={(cell) => act(mid, { action: "fire", cell })}
+              onCancel={cancel}
+              onLeave={leave}
+              onRematch={() => act(mid, { action: "rematch" })}
+            />
+          )
           : mid ? <Splash inline key="loading" />
           : <Lobby key="lobby" hub={hub} busy={busy} setup={setup} onSetup={setSetup} onSearch={search} onCreateLink={createLink} onChallenge={challenge} onAccept={(id) => act(id, { action: "accept" })} onRanking={() => setTab("ranking")} />
         )}
@@ -244,7 +259,7 @@ function Dots() {
   return <span className="dots" aria-hidden="true"><span /><span /><span /></span>;
 }
 
-type Setup = { game: "ttt" | "rps"; bestOf: number };
+type Setup = { game: "ttt" | "rps" | "naval"; bestOf: number };
 
 // Escolha do jogo (e do "melhor de" no caso de pedra, papel e tesoura) antes de criar a partida.
 function GameSetup({ setup, onChange }: { setup: Setup; onChange: (s: Setup) => void }) {
@@ -256,6 +271,9 @@ function GameSetup({ setup, onChange }: { setup: Setup; onChange: (s: Setup) => 
         </button>
         <button type="button" className={`seg-btn${setup.game === "rps" ? " active" : ""}`} onClick={() => onChange({ ...setup, game: "rps" })}>
           {EMOJI.R}{EMOJI.P}{EMOJI.S} Pedra, papel e tesoura
+        </button>
+        <button type="button" className={`seg-btn${setup.game === "naval" ? " active" : ""}`} onClick={() => onChange({ ...setup, game: "naval" })}>
+          Batalha naval
         </button>
       </div>
       {setup.game === "rps" && (
@@ -502,11 +520,12 @@ function RulesView() {
           <li><div><strong>Ou desafie diretamente pelo ranking.</strong> <span className="mute">Seu colega recebe uma notificação na hora para aceitar.</span></div></li>
           <li><div><strong>Jogo da velha: quem criou joga de <span className="X">X</span> e começa.</strong> <span className="mute">Quem aceitou joga de <span className="O">O</span>.</span></div></li>
           <li><div><strong>Pedra, papel e tesoura: os dois escolhem ao mesmo tempo.</strong> <span className="mute">A jogada fica escondida até os dois escolherem. Aí as mãos balançam e o resultado aparece. Empate repete a rodada. Vence quem chegar primeiro à maioria das rodadas (melhor de 1, 3 ou 5).</span></div></li>
+          <li><div><strong>Batalha naval (8×8): os dois posicionam a frota (4, 3, 2, 2), depois atiram à vez.</strong> <span className="mute">Acerto: joga de novo. Água: passa a vez. Vence quem afundar toda a frota inimiga.</span></div></li>
         </ol>
       </section>
       <section className="card" style={vars({ "--delay": ".08s" })}>
         <h2 className="card-title"><IconTrophy /> Pontuação</h2>
-        <span className="mute small">Jogo da velha</span>
+        <span className="mute small">Jogo da velha e batalha naval</span>
         <div className="points-grid">
           <div className="point-card win" style={vars({ "--delay": ".15s" })}><b>+3</b><span>Vitória</span></div>
           <div className="point-card draw" style={vars({ "--delay": ".25s" })}><b>0</b><span>Empate</span></div>
@@ -537,8 +556,16 @@ function Player({ name, sym, active, you, right, winner }: {
   );
 }
 
-function MatchView({ m, busy, onMove, onPick, onCancel, onLeave, onRematch }: {
-  m: any; busy: boolean; onMove: (i: number) => void; onPick: (move: Move) => void; onCancel: () => void; onLeave: () => void; onRematch: () => void;
+function MatchView({ m, busy, onMove, onPick, onPlace, onFire, onCancel, onLeave, onRematch }: {
+  m: any;
+  busy: boolean;
+  onMove: (i: number) => void;
+  onPick: (move: Move) => void;
+  onPlace: (ships: Ship[]) => void;
+  onFire: (cell: number) => void;
+  onCancel: () => void;
+  onLeave: () => void;
+  onRematch: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/?join=${m.id}` : "";
@@ -554,15 +581,16 @@ function MatchView({ m, busy, onMove, onPick, onCancel, onLeave, onRematch }: {
     }
   };
 
+  const shareName = m.game === "rps" ? "pedra, papel e tesoura" : m.game === "naval" ? "batalha naval" : "jogo da velha";
   const shareWhatsApp = () => {
-    const text = encodeURIComponent(`Bora jogar ${m.game === "rps" ? "pedra, papel e tesoura" : "jogo da velha"} comigo? Entra aí no link pra gente disputar: ${shareUrl}`);
+    const text = encodeURIComponent(`Bora jogar ${shareName} comigo? Entra aí no link pra gente disputar: ${shareUrl}`);
     window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
   };
 
   const mine = m.you === m.turn;
   const playing = m.status === "playing";
   const done = m.status === "done";
-  // Em pedra, papel e tesoura o resultado (e o confete) ficam com o RpsMatch, que espera a animacao.
+  // Em RPS/naval o resultado (e o confete) ficam no componente do jogo.
   const outcome: "win" | "lose" | "draw" | null = done && m.game === "ttt" ? (m.winner === "draw" ? "draw" : m.winner === m.you ? "win" : "lose") : null;
 
   return (
@@ -626,6 +654,8 @@ function MatchView({ m, busy, onMove, onPick, onCancel, onLeave, onRematch }: {
           </div>
         ) : m.game === "rps" ? (
           <RpsMatch m={m} busy={busy} onPick={onPick} onLeave={onLeave} onRematch={onRematch} />
+        ) : m.game === "naval" ? (
+          <NavalMatch m={m} busy={busy} onPlace={onPlace} onFire={onFire} onLeave={onLeave} onRematch={onRematch} />
         ) : (
           <>
             <Board board={m.board} you={m.you} canPlay={playing && mine && !busy} onPlay={onMove} />

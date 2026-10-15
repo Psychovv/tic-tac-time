@@ -3,9 +3,39 @@ import { db } from "@/db";
 import { matches, users } from "@/db/schema";
 import { me } from "@/lib/auth";
 import { MOVES, result, rpsRound, winsNeeded, type Move } from "@/lib/game";
+import {
+  allSunk, CELLS, emptyShots, parseFleet, parseShots, shotViews,
+  validateFleet, type Ship, type Shots,
+} from "@/lib/naval";
 
 type Ctx = { params: Promise<{ id: string }> };
 type Match = typeof matches.$inferSelect;
+
+function navalFields(m: Match, uid: string) {
+  if (m.game !== "naval") return {};
+  const isHost = m.hostId === uid, isGuest = m.guestId === uid;
+  const hostFleet = parseFleet(m.hostFleet);
+  const guestFleet = parseFleet(m.guestFleet);
+  const shots = parseShots(m.shots);
+  const myFleet = isHost ? hostFleet : isGuest ? guestFleet : null;
+  const oppFleet = isHost ? guestFleet : isGuest ? hostFleet : null;
+  const myShotList = isHost ? shots.host : isGuest ? shots.guest : [];
+  const oppShotList = isHost ? shots.guest : isGuest ? shots.host : [];
+  // Tiros seus sobre a frota inimiga (hit/sunk sem revelar o resto).
+  // Tiros do oponente sobre a sua frota (sempre conhecidos no seu mar).
+  const myShots = oppFleet ? shotViews(oppFleet, myShotList) : myShotList.map((cell) => ({ cell, hit: false, sunk: false }));
+  const oppShots = myFleet ? shotViews(myFleet, oppShotList) : oppShotList.map((cell) => ({ cell, hit: false, sunk: false }));
+  return {
+    phase: m.phase,
+    myFleet,
+    myReady: Boolean(myFleet),
+    oppReady: Boolean(oppFleet),
+    myShots,
+    oppShots,
+    // Frota inimiga só no fim, para mostrar o que sobrou.
+    oppFleet: m.status === "done" ? oppFleet : null,
+  };
+}
 
 async function view(id: string, uid: string) {
   const m = (await db.select().from(matches).where(eq(matches.id, id)))[0];
@@ -29,14 +59,15 @@ async function view(id: string, uid: string) {
     last: m.last ? JSON.parse(m.last) : null,
     myMove: isHost ? m.hostMove : isGuest ? m.guestMove : null,
     oppPicked: Boolean(isHost ? m.guestMove : isGuest ? m.hostMove : null),
+    ...navalFields(m, uid),
   };
 }
 
-// Pontos: jogo da velha: vitoria +3, empate 0, derrota 0.
+// Pontos: jogo da velha / batalha naval: vitoria +3, empate 0, derrota 0.
 // Pedra, papel e tesoura: vitoria da partida +1, derrota 0 (sem empate de partida).
 async function score(tx: any, m: Match, r: "X" | "O" | "draw") {
   if (r === "draw") {
-    if (m.game === "rps") return;
+    if (m.game === "rps" || m.game === "naval") return;
     for (const id of [m.hostId, m.guestId])
       await tx.update(users).set({ draws: sql`draws + 1` }).where(eq(users.id, id!));
     return;
@@ -74,20 +105,34 @@ async function resolveRound(id: string) {
   });
 }
 
+function woResult(m: Match): "X" | "O" | "draw" {
+  if (m.game === "rps") {
+    return m.hostMove && !m.guestMove ? "X" : m.guestMove && !m.hostMove ? "O" : "draw";
+  }
+  if (m.game === "naval") {
+    if (m.phase === "place") {
+      const h = Boolean(m.hostFleet), g = Boolean(m.guestFleet);
+      if (h && !g) return "X";
+      if (g && !h) return "O";
+      return "draw";
+    }
+    // battle: quem esta na vez perde
+    return m.turn === "X" ? "O" : "X";
+  }
+  return m.turn === "X" ? "O" : "X";
+}
+
 export async function GET(_: Request, { params }: Ctx) {
   const u = await me();
   if (!u) return Response.json({ error: "Faca login" }, { status: 401 });
   const { id } = await params;
 
-  // Lógica de Abandono de Partida (W.O.)
+  // Logica de abandono de partida (W.O.)
   const m = (await db.select().from(matches).where(eq(matches.id, id)))[0];
   if (m && m.status === "playing") {
     const lastActive = m.updatedAt ?? m.createdAt;
     if (lastActive < Date.now() - 300_000) { // 5 minutos de inatividade
-      // quem não jogou perde por W.O. (em RPS: quem ainda não escolheu; se ninguém escolheu, sem vencedor)
-      const res: "X" | "O" | "draw" = m.game === "rps"
-        ? (m.hostMove && !m.guestMove ? "X" : m.guestMove && !m.hostMove ? "O" : "draw")
-        : (m.turn === "X" ? "O" : "X");
+      const res = woResult(m);
       try {
         await db.transaction(async (tx) => {
           const upd = await tx.update(matches)
@@ -109,7 +154,8 @@ export async function POST(req: Request, { params }: Ctx) {
   const u = await me();
   if (!u) return Response.json({ error: "Faca login" }, { status: 401 });
   const { id } = await params;
-  const { action, cell, move } = await req.json();
+  const body = await req.json();
+  const { action, cell, move, ships } = body;
   const now = Date.now();
 
   if (action === "accept") {
@@ -175,11 +221,101 @@ export async function POST(req: Request, { params }: Ctx) {
       .where(and(eq(matches.id, id), eq(matches.status, "playing"), isNull(isHost ? matches.hostMove : matches.guestMove)));
     if (r.rowsAffected === 0) return Response.json({ error: "Voce ja jogou nesta rodada" }, { status: 409 });
     await resolveRound(id);
+  } else if (action === "place") {
+    const m = (await db.select().from(matches).where(eq(matches.id, id)))[0];
+    if (!m || m.game !== "naval" || m.status !== "playing" || m.phase !== "place")
+      return Response.json({ error: "Partida nao esta em posicionamento" }, { status: 409 });
+    const isHost = m.hostId === u.id;
+    if (!isHost && m.guestId !== u.id) return Response.json({ error: "Voce nao esta nesta partida" }, { status: 403 });
+    if (!validateFleet(ships)) return Response.json({ error: "Frota invalida" }, { status: 400 });
+    const fleetCol = isHost ? matches.hostFleet : matches.guestFleet;
+    if (isHost ? m.hostFleet : m.guestFleet)
+      return Response.json({ error: "Voce ja posicionou a frota" }, { status: 409 });
+
+    const fleetJson = JSON.stringify(ships as Ship[]);
+    const r = await db.update(matches)
+      .set({
+        ...(isHost ? { hostFleet: fleetJson } : { guestFleet: fleetJson }),
+        updatedAt: now,
+      })
+      .where(and(
+        eq(matches.id, id),
+        eq(matches.status, "playing"),
+        eq(matches.phase, "place"),
+        isNull(fleetCol),
+      ));
+    if (r.rowsAffected === 0) return Response.json({ error: "Nao foi possivel posicionar" }, { status: 409 });
+
+    // Se os dois ja posicionaram (corrida inclusa), avanca para combate.
+    const turn = Math.random() > 0.5 ? "X" : "O";
+    await db.update(matches)
+      .set({ phase: "battle", turn, updatedAt: Date.now() })
+      .where(and(
+        eq(matches.id, id),
+        eq(matches.status, "playing"),
+        eq(matches.phase, "place"),
+        isNotNull(matches.hostFleet),
+        isNotNull(matches.guestFleet),
+      ));
+  } else if (action === "fire") {
+    const m = (await db.select().from(matches).where(eq(matches.id, id)))[0];
+    if (!m || m.game !== "naval" || m.status !== "playing" || m.phase !== "battle")
+      return Response.json({ error: "Partida nao esta em combate" }, { status: 409 });
+    const isHost = m.hostId === u.id;
+    if (!isHost && m.guestId !== u.id) return Response.json({ error: "Voce nao esta nesta partida" }, { status: 403 });
+    const sym = isHost ? "X" : "O";
+    if (sym !== m.turn) return Response.json({ error: "Nao e a sua vez" }, { status: 400 });
+    if (!Number.isInteger(cell) || cell < 0 || cell >= CELLS)
+      return Response.json({ error: "Jogada invalida" }, { status: 400 });
+
+    const shots: Shots = parseShots(m.shots);
+    const myList = isHost ? shots.host : shots.guest;
+    if (myList.includes(cell)) return Response.json({ error: "Celula ja atacada" }, { status: 400 });
+
+    const oppFleet = parseFleet(isHost ? m.guestFleet : m.hostFleet);
+    if (!oppFleet) return Response.json({ error: "Frota inimiga ausente" }, { status: 409 });
+
+    const nextList = [...myList, cell];
+    const nextShots: Shots = isHost
+      ? { host: nextList, guest: shots.guest }
+      : { host: shots.host, guest: nextList };
+    const hit = oppFleet.some((s) => s.cells.includes(cell));
+    const won = allSunk(oppFleet, nextList);
+    const nextTurn = won ? m.turn : hit ? m.turn : (m.turn === "X" ? "O" : "X");
+    const shotsJson = JSON.stringify(nextShots);
+    const prevShots = m.shots ?? JSON.stringify(emptyShots());
+
+    try {
+      await db.transaction(async (tx) => {
+        const upd = await tx.update(matches)
+          .set({
+            shots: shotsJson,
+            turn: nextTurn,
+            status: won ? "done" : "playing",
+            winner: won ? sym : null,
+            updatedAt: now,
+          })
+          .where(and(
+            eq(matches.id, id),
+            eq(matches.status, "playing"),
+            eq(matches.phase, "battle"),
+            eq(matches.turn, m.turn),
+            eq(matches.shots, prevShots),
+          ));
+        if (upd.rowsAffected === 0) throw new Error("optimistic_lock_failed");
+        if (won) await score(tx, m, sym);
+      });
+    } catch (e: any) {
+      if (e.message === "optimistic_lock_failed") {
+        return Response.json({ error: "Tente novamente" }, { status: 409 });
+      }
+      throw e;
+    }
   } else if (action === "rematch") {
     const m = (await db.select().from(matches).where(eq(matches.id, id)))[0];
     if (!m) return Response.json({ error: "Partida não encontrada" }, { status: 404 });
     const opponentId = u.id === m.hostId ? m.guestId : m.hostId;
-    
+
     // Verifica se o oponente já criou uma partida esperando (do mesmo jogo/formato)
     const existing = await db.select().from(matches).where(
       and(eq(matches.status, "waiting"), eq(matches.hostId, opponentId!), eq(matches.game, m.game), eq(matches.bestOf, m.bestOf))
@@ -199,6 +335,10 @@ export async function POST(req: Request, { params }: Ctx) {
         turn,
         game: m.game,
         bestOf: m.bestOf,
+        ...(m.game === "naval" ? {
+          phase: "place",
+          shots: JSON.stringify(emptyShots()),
+        } : {}),
         createdAt: now,
         updatedAt: now,
       });

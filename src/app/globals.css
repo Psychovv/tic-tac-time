@@ -614,3 +614,88 @@ button { cursor: pointer; }
   .rps-score { font-size: 1.1rem; }
   .rps-pick .emo { font-size: 2.2rem; }
 }
+
+/* ---------- Batalha naval ---------- */
+.naval-place { display: grid; gap: 12px; justify-items: center; width: 100%; }
+.naval-place .center { text-align: center; }
+.naval-place kbd {
+  display: inline-block; padding: 1px 6px; border-radius: 6px; font-size: .75rem; font-weight: 700;
+  border: 1px solid var(--line-strong); background: rgba(255, 255, 255, .06);
+}
+.naval-toolbar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.naval-ships { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.naval-ship-chip {
+  display: grid; justify-items: center; gap: 4px; padding: 8px 10px; border-radius: 12px;
+  border: 1px solid var(--line); background: rgba(255, 255, 255, .04); color: var(--mute);
+  font-size: .75rem; font-weight: 700; transition: border-color .2s, background .2s, color .2s;
+}
+.naval-ship-chip:disabled:not(.placed) { opacity: .45; cursor: default; }
+.naval-ship-chip.next { border-color: var(--o); color: var(--txt); background: rgba(56, 189, 248, .1); }
+.naval-ship-chip.placed { border-color: rgba(52, 211, 153, .45); color: var(--txt); }
+.naval-ship-chip.selected { border-color: var(--x); box-shadow: 0 0 0 3px rgba(255, 159, 67, .15); }
+.naval-ship-bars { display: flex; gap: 2px; }
+.naval-ship-bars i {
+  width: 10px; height: 10px; border-radius: 2px;
+  background: linear-gradient(135deg, #7dd3fc, #0284c7);
+}
+.naval-wait { padding: 24px 0; }
+
+.naval-battle {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%; align-items: start;
+}
+.naval-board-wrap { display: grid; gap: 6px; justify-items: center; min-width: 0; }
+.naval-board-title { font-size: .8rem; font-weight: 700; color: var(--mute); text-align: center; }
+
+.naval-grid {
+  display: grid;
+  grid-template-columns: 18px repeat(8, minmax(0, 1fr));
+  grid-template-rows: 18px repeat(8, minmax(0, 1fr));
+  gap: 2px;
+  width: min(100%, 280px);
+  aspect-ratio: 1;
+  padding: 6px;
+  border-radius: 14px;
+  background: rgba(5, 8, 15, .55);
+  border: 1px solid var(--line);
+}
+.naval-grid.fireable { border-color: rgba(255, 159, 67, .35); box-shadow: 0 0 0 4px rgba(255, 159, 67, .06); }
+.naval-corner { }
+.naval-label {
+  display: grid; place-items: center; font-size: .65rem; font-weight: 700; color: var(--mute);
+  user-select: none;
+}
+.naval-cell {
+  position: relative; border: 0; border-radius: 4px; padding: 0; min-width: 0; min-height: 0;
+  background: rgba(14, 116, 144, .22); transition: background .15s, transform .15s, box-shadow .15s;
+}
+.naval-cell:disabled { cursor: default; }
+.naval-cell.ship { background: linear-gradient(135deg, #64748b, #334155); }
+.naval-cell.ship.selected { box-shadow: inset 0 0 0 2px var(--x); }
+.naval-cell.ship-reveal { background: rgba(100, 116, 139, .55); }
+.naval-cell.preview-ok { background: rgba(52, 211, 153, .35); }
+.naval-cell.preview-bad { background: rgba(248, 113, 113, .4); }
+.naval-cell.miss { background: rgba(56, 189, 248, .15); }
+.naval-cell.miss::after {
+  content: ""; position: absolute; inset: 35%; border-radius: 50%; background: rgba(148, 163, 184, .85);
+}
+.naval-cell.hit { background: rgba(248, 113, 113, .35); }
+.naval-cell.hit::after {
+  content: ""; position: absolute; inset: 22%; border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #fecaca, #ef4444 55%, #991b1b);
+  box-shadow: 0 0 8px rgba(239, 68, 68, .5);
+}
+.naval-cell.sunk { background: rgba(127, 29, 29, .55); }
+.naval-cell.sunk::after {
+  content: ""; position: absolute; inset: 18%; border-radius: 3px;
+  background: linear-gradient(135deg, #7f1d1d, #450a0a);
+  box-shadow: inset 0 0 0 1px rgba(254, 202, 202, .25);
+}
+.naval-cell.target:not(:disabled):hover {
+  background: rgba(255, 159, 67, .28); transform: scale(1.06);
+  box-shadow: 0 0 0 1px rgba(255, 159, 67, .5);
+}
+
+@media (max-width: 640px) {
+  .naval-battle { grid-template-columns: 1fr; justify-items: center; }
+  .naval-grid { width: min(100%, 320px); }
+}

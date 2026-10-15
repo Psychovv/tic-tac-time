@@ -10,7 +10,9 @@ export const EMOJI: Record<Move, string> = { R: "✊", P: "✋", S: "✌️" };
 const NAME: Record<Move, string> = { R: "Pedra", P: "Papel", S: "Tesoura" };
 
 export const gameLabel = (game: string, bestOf: number) =>
-  game === "rps" ? `Pedra, papel e tesoura · melhor de ${bestOf}` : "Jogo da velha";
+  game === "rps" ? `Pedra, papel e tesoura · melhor de ${bestOf}`
+  : game === "naval" ? "Batalha naval · 8×8"
+  : "Jogo da velha";
 
 function Dots() {
   return <span className="dots" aria-hidden="true"><span /><span /><span /></span>;

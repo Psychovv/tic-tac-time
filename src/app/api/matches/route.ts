@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { matches, users } from "@/db/schema";
 import { me } from "@/lib/auth";
 import { BEST_OF } from "@/lib/game";
+import { emptyShots } from "@/lib/naval";
 
 // Cria um convite "procurando partida", link privado ou desafio direto para jogador.
 export async function POST(req: Request) {
@@ -14,7 +15,7 @@ export async function POST(req: Request) {
     body = await req.json();
   } catch {}
 
-  const game = body.game === "rps" ? "rps" : "ttt";
+  const game = body.game === "rps" ? "rps" : body.game === "naval" ? "naval" : "ttt";
   const bestOf = game === "rps" && (BEST_OF as readonly number[]).includes(Number(body.bestOf)) ? Number(body.bestOf) : 1;
 
   let targetUser: typeof users.$inferSelect | null = null;
@@ -75,6 +76,10 @@ export async function POST(req: Request) {
     turn,
     game,
     bestOf,
+    ...(game === "naval" ? {
+      phase: "place",
+      shots: JSON.stringify(emptyShots()),
+    } : {}),
     createdAt: now,
     updatedAt: now,
   });
